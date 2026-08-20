@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 
 from .config import PipelineConfig
@@ -118,7 +118,8 @@ def merge_paths(cfg: PipelineConfig) -> MergePaths:
     )
 
 
-def _settings(cfg: PipelineConfig, force_rematch: bool | None = None) -> list[tuple[str, str]]:
+def _settings(cfg: PipelineConfig, force_rematch: bool | None = None,
+              align_overrides: dict | None = None) -> list[tuple[str, str]]:
     """Every -set applied per run.
 
     RealityScan persists -set values in its application config, so a key left
@@ -126,6 +127,11 @@ def _settings(cfg: PipelineConfig, force_rematch: bool | None = None) -> list[tu
     pipeline depends on is therefore set explicitly on every invocation.
     """
     a, e = cfg.align, cfg.export
+    if align_overrides:
+        unknown = set(align_overrides) - {f.name for f in fields(a)}
+        if unknown:
+            raise ValueError(f"unknown align override(s): {sorted(unknown)}")
+        a = replace(a, **align_overrides)
     fmt = REGISTRATION_FORMATS[e.registration_format]
     rematch = a.force_component_rematch if force_rematch is None else force_rematch
     return [
@@ -371,7 +377,8 @@ def build_merge_command(cfg: PipelineConfig, components: list[Path],
     if cfg.run.headless:
         args.append("-headless")
     args += ["-stdConsole", "-printProgress", "-silent", str(paths.crash)]
-    for k, v in _settings(cfg, force_rematch=cfg.merge.force_rematch):
+    for k, v in _settings(cfg, force_rematch=cfg.merge.force_rematch,
+                          align_overrides=cfg.merge.align_overrides):
         args += ["-set", f"{k}={v}"]
 
     args.append("-newScene")

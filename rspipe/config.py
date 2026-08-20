@@ -190,6 +190,27 @@ class MergeConfig:
     #: 2 re-detects features on every image and ran out of memory at 96 GB on
     #: 10656 images.
     feature_source: int = 1
+    #: Alignment settings to override for the duration of the merge run only.
+    #: feature_source 1 and 2 need the features in memory for every image at
+    #: once, and merging three bands - 22,208 images at ~25k features each -
+    #: ran a 96 GB machine out of memory. Merging only needs enough features to
+    #: find the links, not enough to reconstruct, so the budget can be cut hard
+    #: here without touching the per-set alignment that produced the geometry.
+    #: Keys are the bare names from AlignConfig, e.g.
+    #: {"image_downscale": 2, "max_features_per_mpx": 8000}.
+    #:
+    #: WARNING - this cannot be used to shrink feature_source 1. Give the merge
+    #: a feature_detection_quality that differs from the one the components
+    #: were built with and RealityScan decides the stored features are unusable:
+    #: it silently switches the inputs to "use all image features" and
+    #: re-detects, which needs MORE memory, not less. The popup that says so is
+    #: suppressed in silent mode and the run dies with a heap-corruption exit
+    #: (0xC0000374). The memory that feature_source 1 needs is fixed when the
+    #: components are aligned, not when they are merged.
+    #:
+    #: Useful only where the merge genuinely re-detects anyway, and then every
+    #: input has to be treated the same way.
+    align_overrides: dict = field(default_factory=dict)
     #: extra .rsalign files imported alongside the per-set components.
     #: Consecutive sets share only the overlap indices, and a merge at full
     #: scale can still fail to join two of them - 1-mid-2 split into 6212 +
