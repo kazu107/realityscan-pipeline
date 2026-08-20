@@ -1,0 +1,529 @@
+[
+  {
+    "set": "1-mid_0840-0864",
+    "mode": "plain",
+    "images": 200,
+    "start": 192,
+    "end": 192,
+    "gain": 0,
+    "attempts": 3,
+    "seconds": 126.4,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 192,
+        "after": 192,
+        "dropped": 0,
+        "seconds": 42.2,
+        "exit": 0,
+        "components": [
+          3,
+          2,
+          192,
+          192,
+          2,
+          3
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 192,
+        "after": 192,
+        "dropped": 0,
+        "seconds": 42.1,
+        "exit": 0,
+        "components": [
+          3,
+          2,
+          192,
+          192,
+          2,
+          3,
+          192,
+          2,
+          3
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 192,
+        "after": 192,
+        "dropped": 0,
+        "seconds": 42.1,
+        "exit": 0,
+        "components": [
+          3,
+          2,
+          192,
+          192,
+          2,
+          3,
+          192,
+          2,
+          3,
+          192,
+          2,
+          3
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0840-0864",
+    "mode": "drop",
+    "images": 200,
+    "start": 192,
+    "end": 195,
+    "gain": 3,
+    "attempts": 3,
+    "seconds": 133.4,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 192,
+        "after": 195,
+        "dropped": 2,
+        "seconds": 49.3,
+        "exit": 0,
+        "components": [
+          192,
+          195,
+          2
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 195,
+        "after": 195,
+        "dropped": 2,
+        "seconds": 42.8,
+        "exit": 0,
+        "components": [
+          195,
+          195,
+          2
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 195,
+        "after": 195,
+        "dropped": 2,
+        "seconds": 41.3,
+        "exit": 0,
+        "components": [
+          195,
+          195,
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0000-0024",
+    "mode": "plain",
+    "images": 200,
+    "start": 198,
+    "end": 198,
+    "gain": 0,
+    "attempts": 3,
+    "seconds": 280.2,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 198,
+        "after": 198,
+        "dropped": 0,
+        "seconds": 100.2,
+        "exit": 0,
+        "components": [
+          198,
+          2,
+          198,
+          2
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 198,
+        "after": 198,
+        "dropped": 0,
+        "seconds": 89.5,
+        "exit": 0,
+        "components": [
+          198,
+          2,
+          198,
+          2,
+          198
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 198,
+        "after": 198,
+        "dropped": 0,
+        "seconds": 90.5,
+        "exit": 0,
+        "components": [
+          198,
+          2,
+          198,
+          2,
+          198,
+          198
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0000-0024",
+    "mode": "drop",
+    "images": 200,
+    "start": 198,
+    "end": 199,
+    "gain": 1,
+    "attempts": 3,
+    "seconds": 268.0,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 198,
+        "after": 199,
+        "dropped": 1,
+        "seconds": 101.6,
+        "exit": 0,
+        "components": [
+          198,
+          199
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 199,
+        "after": 199,
+        "dropped": 1,
+        "seconds": 84.1,
+        "exit": 0,
+        "components": [
+          199,
+          199
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 199,
+        "after": 199,
+        "dropped": 1,
+        "seconds": 82.3,
+        "exit": 0,
+        "components": [
+          199,
+          199
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0480-0504",
+    "mode": "plain",
+    "images": 200,
+    "start": 191,
+    "end": 191,
+    "gain": 0,
+    "attempts": 3,
+    "seconds": 121.6,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 191,
+        "after": 191,
+        "dropped": 0,
+        "seconds": 42.2,
+        "exit": 0,
+        "components": [
+          191,
+          191
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 191,
+        "after": 191,
+        "dropped": 0,
+        "seconds": 38.7,
+        "exit": 0,
+        "components": [
+          191,
+          191,
+          191
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 191,
+        "after": 191,
+        "dropped": 0,
+        "seconds": 40.7,
+        "exit": 0,
+        "components": [
+          191,
+          191,
+          191,
+          191
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0480-0504",
+    "mode": "drop",
+    "images": 200,
+    "start": 191,
+    "end": 191,
+    "gain": 0,
+    "attempts": 3,
+    "seconds": 126.5,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 191,
+        "after": 191,
+        "dropped": 0,
+        "seconds": 40.7,
+        "exit": 0,
+        "components": [
+          191,
+          191
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 191,
+        "after": 191,
+        "dropped": 1,
+        "seconds": 43.1,
+        "exit": 0,
+        "components": [
+          191,
+          191
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 191,
+        "after": 191,
+        "dropped": 1,
+        "seconds": 42.7,
+        "exit": 0,
+        "components": [
+          191,
+          191
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0580-0604",
+    "mode": "plain",
+    "images": 200,
+    "start": 194,
+    "end": 194,
+    "gain": 0,
+    "attempts": 3,
+    "seconds": 185.1,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 194,
+        "after": 194,
+        "dropped": 0,
+        "seconds": 62.2,
+        "exit": 0,
+        "components": [
+          194,
+          194
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 194,
+        "after": 194,
+        "dropped": 0,
+        "seconds": 62.8,
+        "exit": 0,
+        "components": [
+          194,
+          194,
+          194,
+          4
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 194,
+        "after": 194,
+        "dropped": 0,
+        "seconds": 60.1,
+        "exit": 0,
+        "components": [
+          194,
+          194,
+          194,
+          4,
+          194,
+          4
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0580-0604",
+    "mode": "drop",
+    "images": 200,
+    "start": 194,
+    "end": 194,
+    "gain": 0,
+    "attempts": 3,
+    "seconds": 182.2,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 194,
+        "after": 194,
+        "dropped": 0,
+        "seconds": 62.7,
+        "exit": 0,
+        "components": [
+          194,
+          194,
+          5
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 194,
+        "after": 194,
+        "dropped": 2,
+        "seconds": 61.9,
+        "exit": 0,
+        "components": [
+          194,
+          194,
+          5
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 194,
+        "after": 194,
+        "dropped": 2,
+        "seconds": 57.6,
+        "exit": 0,
+        "components": [
+          194,
+          194
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0360-0384",
+    "mode": "plain",
+    "images": 200,
+    "start": 195,
+    "end": 196,
+    "gain": 1,
+    "attempts": 3,
+    "seconds": 176.8,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 195,
+        "after": 195,
+        "dropped": 0,
+        "seconds": 59.7,
+        "exit": 0,
+        "components": [
+          195,
+          195
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 195,
+        "after": 196,
+        "dropped": 0,
+        "seconds": 58.0,
+        "exit": 0,
+        "components": [
+          195,
+          195,
+          196
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 196,
+        "after": 196,
+        "dropped": 0,
+        "seconds": 59.1,
+        "exit": 0,
+        "components": [
+          195,
+          195,
+          196,
+          195
+        ]
+      }
+    ]
+  },
+  {
+    "set": "1-mid_0360-0384",
+    "mode": "drop",
+    "images": 200,
+    "start": 195,
+    "end": 196,
+    "gain": 1,
+    "attempts": 3,
+    "seconds": 188.0,
+    "history": [
+      {
+        "attempt": 1,
+        "before": 195,
+        "after": 196,
+        "dropped": 0,
+        "seconds": 60.2,
+        "exit": 0,
+        "components": [
+          195,
+          196
+        ]
+      },
+      {
+        "attempt": 2,
+        "before": 196,
+        "after": 196,
+        "dropped": 1,
+        "seconds": 67.3,
+        "exit": 0,
+        "components": [
+          196,
+          196
+        ]
+      },
+      {
+        "attempt": 3,
+        "before": 196,
+        "after": 196,
+        "dropped": 1,
+        "seconds": 60.5,
+        "exit": 0,
+        "components": [
+          196,
+          195
+        ]
+      }
+    ]
+  }
+]

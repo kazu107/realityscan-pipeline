@@ -1,0 +1,87 @@
+{
+  "dataset": {
+    "image_dir": "K:\\data\\jpeg\\1-low",
+    "pattern": "^(?P<prefix>.+)_(?P<index>\\d+)_(?P<view>\\d+)$",
+    "extensions": ".jpg,.jpeg,.png,.tif,.tiff",
+    "index_start": 0,
+    "index_end": -1,
+    "index_step": 1,
+    "views": "",
+    "chunk_indices": 25,
+    "overlap_indices": 3,
+    "max_chunks": 0
+  },
+  "masks": {
+    "enabled": true,
+    "pattern": "{name}.mask.png",
+    "directory": "",
+    "usage": 1
+  },
+  "chain": {
+    "mode": "component",
+    "lock_overlap_pose": true,
+    "close_loop": false,
+    "loop_overlap_indices": 0
+  },
+  "seed": {
+    "enabled": true,
+    "spec": "1-low_0000-0024 = K:\\realityscan\\out\\1-mid-1\\1-mid_0000-0024\\1-mid_0000-0024.rsalign\n1-low_0044-0068 = K:\\realityscan\\out\\1-mid-1\\1-mid_0060-0084\\1-mid_0060-0084.rsalign\n1-low_0110-0134 = K:\\realityscan\\out\\1-mid-1\\1-mid_0160-0184\\1-mid_0160-0184.rsalign\n1-low_0154-0178 = K:\\realityscan\\out\\1-mid-1\\1-mid_0220-0244\\1-mid_0220-0244.rsalign\n1-low_0242-0266 = K:\\realityscan\\out\\1-mid-1\\1-mid_0020-0044\\1-mid_0020-0044.rsalign\n1-low_0660-0684 = K:\\realityscan\\out\\1-mid-1\\1-mid_0540-0564\\1-mid_0540-0564.rsalign\n1-low_0770-0794 = K:\\realityscan\\out\\1-mid-1\\1-mid_0700-0724\\1-mid_0700-0724.rsalign\n1-low_0814-0838 = K:\\realityscan\\out\\1-mid-1\\1-mid_0840-0864\\1-mid_0840-0864.rsalign\n1-low_0858-0868 = K:\\realityscan\\out\\1-mid-1\\1-mid_0880-0904\\1-mid_0880-0904.rsalign"
+  },
+  "retry": {
+    "enabled": false,
+    "min_ratio": 1.0,
+    "max_attempts": 2,
+    "drop_minor_components": true,
+    "force_rematch": false
+  },
+  "merge": {
+    "enabled": true,
+    "dir_name": "_merged",
+    "force_rematch": false,
+    "align_after_merge": false,
+    "feature_source": 1,
+    "extra_components": []
+  },
+  "priors": {
+    "enabled": true,
+    "focal35": 15.1039,
+    "calibration_prior": 1,
+    "calibration_group": 1,
+    "distortion_prior": 2,
+    "distortion_model": 0,
+    "lens_group": 1
+  },
+  "align": {
+    "image_downscale": 1,
+    "max_features_per_image": 160000,
+    "max_features_per_mpx": 40000,
+    "images_overlap": "Medium",
+    "detector_sensitivity": "Ultra",
+    "feature_detection_quality": "High",
+    "max_feature_reprojection_error": 2.0,
+    "preselector_features": 40000,
+    "distortion_model": "Brown3",
+    "force_component_rematch": false,
+    "auto_recon_region": false
+  },
+  "export": {
+    "out_root": "K:\\realityscan\\out\\1-low-ex",
+    "sparse": false,
+    "sparse_ext": ".ply",
+    "registration": false,
+    "registration_format": "intext_csv",
+    "registration_export_images": false,
+    "component": true,
+    "project": true,
+    "min_component_size": 5
+  },
+  "run": {
+    "exe": "C:\\Program Files\\Epic Games\\RealityScan_2.2\\RealityScan.exe",
+    "headless": true,
+    "quit_on_error": true,
+    "autosave": false,
+    "clear_cache_after_chunk": false,
+    "skip_existing": true,
+    "timeout_min": 0
+  }
+}

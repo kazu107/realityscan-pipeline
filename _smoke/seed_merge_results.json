@@ -1,0 +1,40 @@
+[
+  {
+    "case": "noseed",
+    "seconds": 426.4,
+    "exit": 0,
+    "imported": {
+      "1-mid_0000-0024": 198,
+      "1-mid_0020-0044": 198,
+      "1-high_0000-0024": 267,
+      "1-high_0020-0044": 272
+    },
+    "merged_new": {
+      "Component 0": 358,
+      "Component 1": 487
+    },
+    "best": 487,
+    "exported_by_capture": {
+      "1-high": 487
+    }
+  },
+  {
+    "case": "seed",
+    "seconds": 654.6,
+    "exit": 0,
+    "imported": {
+      "1-mid_0000-0024": 198,
+      "1-mid_0020-0044": 198,
+      "1-high_0000-0024": 469,
+      "1-high_0020-0044": 275
+    },
+    "merged_new": {
+      "Component 0": 849
+    },
+    "best": 849,
+    "exported_by_capture": {
+      "1-mid": 358,
+      "1-high": 491
+    }
+  }
+]

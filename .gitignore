@@ -1,0 +1,22 @@
+# Reconstruction outputs. out/ alone is ~274 GB.
+/out/
+/out_*/
+
+# What RealityScan writes: components, projects and their data folders,
+# point clouds, crash dumps. All reproducible from the presets.
+*.rsproj
+*.rsalign
+*.ply
+*.dmp
+*.dmp.metadata
+crash/
+_smoke/smoke/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# a probe run captured early on; the findings are in the README
+_smoke/smoke.log

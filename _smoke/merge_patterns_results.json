@@ -1,0 +1,308 @@
+[
+  {
+    "label": "one_shot",
+    "n_components": 15,
+    "seconds": 1197.7,
+    "exit": 0,
+    "cams": 2433,
+    "points": 4012757,
+    "mean_px": 0.573,
+    "output_mb": 1996.7
+  },
+  {
+    "label": "two_stage_g3/stage1_0",
+    "n_components": 5,
+    "seconds": 206.0,
+    "exit": 0,
+    "cams": 833,
+    "points": 1190893,
+    "mean_px": 0.6134,
+    "output_mb": 641.7
+  },
+  {
+    "label": "two_stage_g3/stage1_1",
+    "n_components": 5,
+    "seconds": 319.4,
+    "exit": 0,
+    "cams": 840,
+    "points": 1466825,
+    "mean_px": 0.563,
+    "output_mb": 715.7
+  },
+  {
+    "label": "two_stage_g3/stage1_2",
+    "n_components": 5,
+    "seconds": 194.1,
+    "exit": 0,
+    "cams": 840,
+    "points": 1519722,
+    "mean_px": 0.5464,
+    "output_mb": 716.1
+  },
+  {
+    "label": "two_stage_g3/stage2",
+    "n_components": 3,
+    "seconds": 861.2,
+    "exit": 0,
+    "cams": 2433,
+    "points": 4012249,
+    "mean_px": 0.5698,
+    "output_mb": 1996.7
+  },
+  {
+    "label": "two_stage_g3 TOTAL",
+    "n_components": 15,
+    "seconds": 1580.7,
+    "exit": 0,
+    "cams": 2433,
+    "points": 4012249,
+    "mean_px": 0.5698,
+    "output_mb": 1996.7,
+    "stage1_seconds": 719.5,
+    "stage2_seconds": 861.2,
+    "groups": 3
+  },
+  {
+    "label": "two_stage_g5/stage1_0",
+    "n_components": 3,
+    "seconds": 114.7,
+    "exit": 0,
+    "cams": 518,
+    "points": 735318,
+    "mean_px": 0.5988,
+    "output_mb": 391.2
+  },
+  {
+    "label": "two_stage_g5/stage1_1",
+    "n_components": 3,
+    "seconds": 77.0,
+    "exit": 0,
+    "cams": 515,
+    "points": 809378,
+    "mean_px": 0.6108,
+    "output_mb": 432.4
+  },
+  {
+    "label": "two_stage_g5/stage1_2",
+    "n_components": 3,
+    "seconds": 101.8,
+    "exit": 0,
+    "cams": 520,
+    "points": 874166,
+    "mean_px": 0.5459,
+    "output_mb": 416.2
+  },
+  {
+    "label": "two_stage_g5/stage1_3",
+    "n_components": 3,
+    "seconds": 91.4,
+    "exit": 0,
+    "cams": 520,
+    "points": 1014583,
+    "mean_px": 0.5478,
+    "output_mb": 472.9
+  },
+  {
+    "label": "two_stage_g5/stage1_4",
+    "n_components": 3,
+    "seconds": 122.5,
+    "exit": 0,
+    "cams": 520,
+    "points": 932499,
+    "mean_px": 0.5475,
+    "output_mb": 447.3
+  },
+  {
+    "label": "two_stage_g5/stage2",
+    "n_components": 5,
+    "seconds": 656.0,
+    "exit": 0,
+    "cams": 2433,
+    "points": 4011306,
+    "mean_px": 0.5711,
+    "output_mb": 1994.9
+  },
+  {
+    "label": "two_stage_g5 TOTAL",
+    "n_components": 15,
+    "seconds": 1163.4,
+    "exit": 0,
+    "cams": 2433,
+    "points": 4011306,
+    "mean_px": 0.5711,
+    "output_mb": 1994.9,
+    "stage1_seconds": 507.4,
+    "stage2_seconds": 656.0,
+    "groups": 5
+  },
+  {
+    "label": "sequential/step_000",
+    "n_components": 2,
+    "seconds": 42.3,
+    "exit": 0,
+    "cams": 358,
+    "points": 540805,
+    "mean_px": 0.5966,
+    "output_mb": 287.6
+  },
+  {
+    "label": "sequential/step_001",
+    "n_components": 2,
+    "seconds": 83.3,
+    "exit": 0,
+    "cams": 518,
+    "points": 735599,
+    "mean_px": 0.5988,
+    "output_mb": 391.1
+  },
+  {
+    "label": "sequential/step_002",
+    "n_components": 2,
+    "seconds": 143.8,
+    "exit": 0,
+    "cams": 674,
+    "points": 913394,
+    "mean_px": 0.6082,
+    "output_mb": 493.6
+  },
+  {
+    "label": "sequential/step_003",
+    "n_components": 2,
+    "seconds": 150.6,
+    "exit": 0,
+    "cams": 833,
+    "points": 1190816,
+    "mean_px": 0.6126,
+    "output_mb": 641.1
+  },
+  {
+    "label": "sequential/step_004",
+    "n_components": 2,
+    "seconds": 155.5,
+    "exit": 0,
+    "cams": 993,
+    "points": 1474279,
+    "mean_px": 0.6081,
+    "output_mb": 788.9
+  },
+  {
+    "label": "sequential/step_005",
+    "n_components": 2,
+    "seconds": 212.7,
+    "exit": 0,
+    "cams": 1153,
+    "points": 1691433,
+    "mean_px": 0.6005,
+    "output_mb": 895.4
+  },
+  {
+    "label": "sequential/step_006",
+    "n_components": 2,
+    "seconds": 178.1,
+    "exit": 0,
+    "cams": 1313,
+    "points": 1953311,
+    "mean_px": 0.5932,
+    "output_mb": 1017.1
+  },
+  {
+    "label": "sequential/step_007",
+    "n_components": 2,
+    "seconds": 267.1,
+    "exit": 0,
+    "cams": 1473,
+    "points": 2251452,
+    "mean_px": 0.5865,
+    "output_mb": 1157.9
+  },
+  {
+    "label": "sequential/step_008",
+    "n_components": 2,
+    "seconds": 257.3,
+    "exit": 0,
+    "cams": 1633,
+    "points": 2582519,
+    "mean_px": 0.5838,
+    "output_mb": 1319.2
+  },
+  {
+    "label": "sequential/step_009",
+    "n_components": 2,
+    "seconds": 526.0,
+    "exit": 0,
+    "cams": 1793,
+    "points": 2839271,
+    "mean_px": 0.5781,
+    "output_mb": 1433.4
+  },
+  {
+    "label": "sequential/step_010",
+    "n_components": 2,
+    "seconds": 516.7,
+    "exit": 0,
+    "cams": 1953,
+    "points": 3169897,
+    "mean_px": 0.5765,
+    "output_mb": 1587.1
+  },
+  {
+    "label": "sequential/step_011",
+    "n_components": 2,
+    "seconds": 283.5,
+    "exit": 0,
+    "cams": 2113,
+    "points": 3413531,
+    "mean_px": 0.5737,
+    "output_mb": 1703.6
+  },
+  {
+    "label": "sequential/step_012",
+    "n_components": 2,
+    "seconds": 300.3,
+    "exit": 0,
+    "cams": 2273,
+    "points": 3665308,
+    "mean_px": 0.5727,
+    "output_mb": 1827.6
+  },
+  {
+    "label": "sequential/step_013",
+    "n_components": 2,
+    "seconds": 403.0,
+    "exit": 0,
+    "cams": 2433,
+    "points": 4011854,
+    "mean_px": 0.5702,
+    "output_mb": 1996.0
+  },
+  {
+    "label": "sequential TOTAL",
+    "n_components": 15,
+    "seconds": 3520.2,
+    "exit": 0,
+    "cams": 2433,
+    "points": 4011854,
+    "mean_px": 0.5702,
+    "output_mb": 1996.0
+  },
+  {
+    "label": "one_shot_fs1",
+    "n_components": 15,
+    "seconds": 1836.1,
+    "exit": 0,
+    "cams": 2433,
+    "points": 3762294,
+    "mean_px": 0.5697,
+    "output_mb": 1867.8
+  },
+  {
+    "label": "one_shot_align",
+    "n_components": 15,
+    "seconds": 1511.7,
+    "exit": 0,
+    "cams": 2433,
+    "points": 4012743,
+    "mean_px": 0.5732,
+    "output_mb": 1996.8
+  }
+]
