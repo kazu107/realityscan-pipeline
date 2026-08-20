@@ -1,4 +1,4 @@
-"""RealityScan export-format registry.
+r"""RealityScan export-format registry.
 
 Format GUIDs come from the format definitions shipped with the application:
     <install>\calibration.xml   (registration / camera parameters)
