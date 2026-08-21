@@ -57,7 +57,10 @@ def main() -> int:
     from rspipe.config import find_realityscan
     cfg.run.exe = cfg.run.exe or find_realityscan()
     cfg.run.timeout_min = 1440
-    cfg.export = replace(cfg.export, out_root=str(Path("out") / name),
+    # absolute: RealityScan resolves a relative path against its own working
+    # directory, which is the install folder - an 8 hour merge wrote 21 GB of
+    # exports into C:\Program Files before this was noticed
+    cfg.export = replace(cfg.export, out_root=str((Path("out") / name).resolve()),
                          sparse=True, registration=True, project=True)
     cfg.merge = replace(cfg.merge, dir_name="_merged", feature_source=int(opts["--fs"]),
                         force_rematch=False, extra_components=[],
