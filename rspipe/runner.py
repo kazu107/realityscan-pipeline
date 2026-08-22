@@ -316,19 +316,23 @@ class PipelineRunner:
         self.emit("pipeline_start", {"total": len(self.results)})
         t0 = time.time()
 
-        prev_component: Path | None = None
-        prev_name: str | None = None
-        first_component: Path | None = None
-        first_name: str | None = None
+        # Each tiling chains on its own. An offset or differently-sized pass is
+        # a second sweep of the same images: its first set has no predecessor in
+        # the base pass, and handing it one would carry the base pass's frame
+        # into a set that is meant to be an independent check on it.
+        prev: dict[str, tuple[Path, str] | None] = {}
+        first: dict[str, tuple[Path, str] | None] = {}
         for chunk, result in zip(self.chunks, self.results):
             if self._cancel.is_set():
                 result.status = "cancelled"
                 self.emit("step_end", {"result": result})
                 continue
+            key = chunk.pass_name
+            pc, pn = prev.get(key) or (None, None)
+            fc, fn = first.get(key) or (None, None)
             paths = chunk_paths(chunk, self.cfg)
             try:
-                self._run_chunk(chunk, result, paths, prev_component, prev_name,
-                                first_component, first_name)
+                self._run_chunk(chunk, result, paths, pc, pn, fc, fn)
             except Exception as exc:                      # noqa: BLE001
                 result.status = "failed"
                 result.message = f"{type(exc).__name__}: {exc}"
@@ -336,13 +340,12 @@ class PipelineRunner:
                                           + traceback.format_exc()})
                 self.emit("step_end", {"result": result})
             if paths.component.exists():
-                prev_component, prev_name = paths.component, chunk.name
-                if first_component is None:
-                    first_component, first_name = paths.component, chunk.name
+                prev[key] = (paths.component, chunk.name)
+                first.setdefault(key, (paths.component, chunk.name))
             elif self.cfg.chain.mode == "component":
                 self.emit("log", {"line": f"[rspipe] {chunk.name}: no component on disk, "
                                           f"the next set starts from scratch"})
-                prev_component, prev_name = None, None
+                prev[key] = None
             self._write_summary(out_root)
 
         if merge_result is not None and not self._cancel.is_set():

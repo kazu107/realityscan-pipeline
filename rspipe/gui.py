@@ -167,6 +167,28 @@ class App(ttk.Frame):
             kind = tk.StringVar if key.endswith("views") else tk.IntVar
             _row(g2, r, label, ttk.Entry(g2, textvariable=self.V(key, kind), width=12), hint)
             r += 1
+
+        g6 = ttk.LabelFrame(g2, text="Cover the set boundaries (each option costs "
+                                     "one more alignment pass over everything)")
+        g6.grid(row=r, column=0, columnspan=4, sticky="we", padx=6, pady=(8, 4))
+        g6.columnconfigure(2, weight=1)
+        _row(g6, 0, "Extra offset passes",
+             ttk.Entry(g6, textvariable=self.V("dataset.extra_passes", tk.IntVar),
+                       width=12),
+             "0 = off. 1 tiles the images a second time, shifted half a stride,\n"
+             "so every boundary of the first tiling lands mid-set in the second.\n"
+             "A merge joins two sets through their overlap alone, and a few of\n"
+             "those joins fail - 4 of 109 broke by 2-8x the camera spacing.",
+             2)
+        _row(g6, 1, "Extra set sizes",
+             ttk.Entry(g6, textvariable=self.V("dataset.extra_chunk_sizes"),
+                       width=12),
+             'empty = off, e.g. "15,35". Tiles the images again at each size.\n'
+             "Different sizes put their boundaries elsewhere, and a longer set\n"
+             "also ties more distant cameras - but they only miss each other by\n"
+             "luck, while an offset pass guarantees it.",
+             2)
+        r += 1
         _row(g2, r, "Set chaining",
              self._combo_str(g2, "chain.mode", ["component", "images"], width=14),
              "component: import the previous set's component, keep only the "

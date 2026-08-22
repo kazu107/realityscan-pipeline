@@ -69,6 +69,10 @@ class Chunk:
     #: last set of a loop capture links back to the beginning
     loop_indices: list[int] = field(default_factory=list)
     loop_images: list[Path] = field(default_factory=list)
+    #: which tiling this set came from. Sets chain within a pass, never across
+    #: one: an offset tiling is a second sweep of the same images and has no
+    #: predecessor in the first.
+    pass_name: str = ""
 
     @property
     def images(self) -> list[Path]:
@@ -174,52 +178,84 @@ def make_chunks(scan: Scan, cfg: DatasetConfig,
             continue
         by_index.setdefault(e.index, []).append(e.path)
 
-    size = max(1, cfg.chunk_indices)
-    overlap = min(max(0, cfg.overlap_indices), size - 1)
-    stride = size - overlap
-
     prefix = scan.prefixes[0] if scan.prefixes else "set"
-    chunks: list[Chunk] = []
-    pos = 0
-    previous_end: int | None = None
-    while pos < len(indices):
-        window = indices[pos: pos + size]
-        if previous_end is None:
-            ov, new = [], window
-        else:
-            ov = [i for i in window if i <= previous_end]
-            new = [i for i in window if i > previous_end]
-        if not new:
-            break
-        chunks.append(
-            Chunk(
-                number=len(chunks),
-                name=f"{prefix}_{window[0]:04d}-{window[-1]:04d}",
-                prefix=prefix,
-                index_from=window[0],
-                index_to=window[-1],
-                overlap_indices=ov,
-                overlap_images=[p for i in ov for p in by_index.get(i, [])],
-                new_images=[p for i in new for p in by_index.get(i, [])],
+
+    def tile(size: int, offset: int, pass_name: str) -> list[Chunk]:
+        size = max(1, size)
+        overlap = min(max(0, cfg.overlap_indices), size - 1)
+        stride = size - overlap
+        out: list[Chunk] = []
+        pos = offset
+        previous_end: int | None = None
+        while pos < len(indices):
+            window = indices[pos: pos + size]
+            if previous_end is None:
+                ov, new = [], window
+            else:
+                ov = [i for i in window if i <= previous_end]
+                new = [i for i in window if i > previous_end]
+            if not new:
+                break
+            tag = f"_{pass_name}" if pass_name else ""
+            out.append(
+                Chunk(
+                    number=len(out),
+                    name=f"{prefix}_{window[0]:04d}-{window[-1]:04d}{tag}",
+                    prefix=prefix,
+                    index_from=window[0],
+                    index_to=window[-1],
+                    overlap_indices=ov,
+                    overlap_images=[p for i in ov for p in by_index.get(i, [])],
+                    new_images=[p for i in new for p in by_index.get(i, [])],
+                    pass_name=pass_name,
+                )
             )
-        )
-        previous_end = window[-1]
-        if pos + size >= len(indices):
-            break
-        pos += stride
+            previous_end = window[-1]
+            if pos + size >= len(indices):
+                break
+            pos += stride
 
-    if cfg.max_chunks > 0:
-        chunks = chunks[: cfg.max_chunks]
+        if cfg.max_chunks > 0:
+            out = out[: cfg.max_chunks]
 
-    if chain is not None and chain.close_loop and len(chunks) > 1:
-        n = chain.loop_overlap_indices or overlap
-        last = chunks[-1]
-        taken = set(range(last.index_from, last.index_to + 1))
-        loop = [i for i in indices[:n] if i not in taken]
-        if loop:
-            last.loop_indices = loop
-            last.loop_images = [p for i in loop for p in by_index.get(i, [])]
+        # only the tiling that starts at the beginning can close a loop
+        if (chain is not None and chain.close_loop and len(out) > 1
+                and offset == 0):
+            n = chain.loop_overlap_indices or overlap
+            last = out[-1]
+            taken = set(range(last.index_from, last.index_to + 1))
+            loop = [i for i in indices[:n] if i not in taken]
+            if loop:
+                last.loop_indices = loop
+                last.loop_images = [p for i in loop for p in by_index.get(i, [])]
+        return out
 
+    base = max(1, cfg.chunk_indices)
+    chunks = tile(base, 0, "")
+
+    # Offset tilings: a boundary that the base tiling failed to join across
+    # falls inside one of these sets, so the merge sees a link half a set wide
+    # instead of just the overlap.
+    stride = base - min(max(0, cfg.overlap_indices), base - 1)
+    for k in range(1, max(0, cfg.extra_passes) + 1):
+        off = round(stride * k / (cfg.extra_passes + 1))
+        if off <= 0:
+            continue
+        chunks += tile(base, off, f"p{off}")
+
+    for token in (cfg.extra_chunk_sizes or "").replace(";", ",").split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            other = int(token)
+        except ValueError:
+            continue
+        if other > 0 and other != base:
+            chunks += tile(other, 0, f"s{other}")
+
+    for n, c in enumerate(chunks):
+        c.number = n
     return chunks
 
 

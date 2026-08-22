@@ -56,6 +56,26 @@ class DatasetConfig:
     #: chunk_indices on captures that move in a straight line.
     overlap_indices: int = 10
     max_chunks: int = 0          # 0 = no limit (debug aid)
+    #: Extra tilings of the same images, each shifted so its set boundaries fall
+    #: inside the previous tiling's sets.
+    #:
+    #: A merge joins two consecutive sets through their overlap alone, and that
+    #: overlap is short: all views of one index share a rig centre, so N overlap
+    #: indices are N points on a near-straight line. Most joins survive it; a
+    #: few do not. Merging 109 set boundaries across three bands left 4 of them
+    #: broken by 2-8x the camera spacing, enough to cut the trajectory in two.
+    #:
+    #: A second tiling offset by half a stride puts every one of those
+    #: boundaries in the middle of one of its sets, so the merge gets a link
+    #: half a set wide exactly where the thin one failed. Costs one more full
+    #: alignment pass per extra tiling.
+    extra_passes: int = 0
+    #: Additional set sizes to tile the images with, as "15,35". Each becomes
+    #: its own pass. Different sizes put their boundaries in different places,
+    #: and a longer set also ties more distant cameras together - but the
+    #: boundaries only miss each other by luck, while extra_passes guarantees
+    #: it. Costs one alignment pass per size.
+    extra_chunk_sizes: str = ""
 
 
 @dataclass
