@@ -243,6 +243,10 @@ def make_chunks(scan: Scan, cfg: DatasetConfig,
             continue
         chunks += tile(base, off, f"p{off}")
 
+    # A size named twice would tile twice under the same pass name, and two sets
+    # sharing a name share an output folder: they overwrite each other, and
+    # skip_existing reads the second as already done.
+    seen_sizes = {base}
     for token in (cfg.extra_chunk_sizes or "").replace(";", ",").split(","):
         token = token.strip()
         if not token:
@@ -251,7 +255,8 @@ def make_chunks(scan: Scan, cfg: DatasetConfig,
             other = int(token)
         except ValueError:
             continue
-        if other > 0 and other != base:
+        if other > 0 and other not in seen_sizes:
+            seen_sizes.add(other)
             chunks += tile(other, 0, f"s{other}")
 
     for n, c in enumerate(chunks):

@@ -61,7 +61,10 @@ def main() -> int:
 
     scan = scan_folder(cfg.dataset)
     prefix = scan.prefixes[0] if scan.prefixes else "set"
-    cfg = replace(cfg, export=replace(cfg.export, project=False))
+    # The camera list is how a patch gets checked before committing to a merge
+    # that takes hours, so export it even when the band's preset does not -
+    # a run whose preset had it off produced patches that could not be verified.
+    cfg = replace(cfg, export=replace(cfg.export, project=False, registration=True))
 
     for n, b in enumerate(bounds):
         chunk = patch_chunk(scan, cfg, prefix, b - HALF, b + HALF, n)
