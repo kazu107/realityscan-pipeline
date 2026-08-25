@@ -12,6 +12,12 @@ along the same line, in either direction, and runs at right angles to it all
 land together - what is left is the drift.
 
     python diag_heading.py <cameras.csv> [...] [--prefix P] [--min-run N]
+                           [--min-span M]
+
+--min-span is the one that matters: a run has to actually go somewhere before
+its heading means anything. It is given in multiples of the median distance
+between consecutive indices, so a corner or a gentle curve - which the splitter
+also reports as a "run" - does not get a vote.
 """
 
 from __future__ import annotations
@@ -68,13 +74,15 @@ def runs(idx: np.ndarray, xy: np.ndarray, min_run: int, turn_deg: float = 12.0):
 
 def main() -> int:
     argv = list(sys.argv[1:])
-    prefix, min_run, files = "", 15, []
+    prefix, min_run, min_span, files = "", 15, 20.0, []
     i = 0
     while i < len(argv):
         if argv[i] == "--prefix":
             prefix, i = argv[i + 1], i + 2
         elif argv[i] == "--min-run":
             min_run, i = int(argv[i + 1]), i + 2
+        elif argv[i] == "--min-span":
+            min_span, i = float(argv[i + 1]), i + 2
         else:
             files.append(argv[i])
             i += 1
@@ -83,15 +91,19 @@ def main() -> int:
         idx, p3 = centres(Path(f), prefix)
         xy = (p3 - p3.mean(0)) @ ground_plane(p3).T
         rr = runs(idx, xy, min_run)
-        if not rr:
-            print(f"{f}: no straight runs found")
-            continue
+        step = float(np.median(np.linalg.norm(np.diff(xy, axis=0), axis=1)))
+        floor = min_span * step
         rows = []
         for a, b in rr:
             v = xy[b] - xy[a]
+            span = float(np.linalg.norm(v))
+            if span < floor:
+                continue
             head = np.degrees(np.arctan2(v[1], v[0])) % 90.0
-            rows.append((idx[a], idx[b], b - a, head,
-                         float(np.linalg.norm(v))))
+            rows.append((idx[a], idx[b], b - a, head, span))
+        if not rows:
+            print(f"{f}: no run travels {min_span:g} index steps or more")
+            continue
         heads = np.array([r[3] for r in rows])
         lens = np.array([r[4] for r in rows])
         # circular mean on a 90 degree period, weighted by run length
@@ -100,8 +112,9 @@ def main() -> int:
                                       (lens * np.cos(th)).sum())) / 4) % 90
         dev = (heads - mean + 45) % 90 - 45
         print(f"{f}")
-        print(f"  {len(rows)} straight runs of >= {min_run} indices, "
-              f"dominant heading {mean:.2f} deg (mod 90)")
+        print(f"  {len(rows)} straight runs of >= {min_run} indices that travel "
+              f">= {min_span:g} steps ({floor:.1f}), of {len(rr)} found")
+        print(f"  dominant heading {mean:.2f} deg (mod 90)")
         print(f"  deviation: median {np.median(np.abs(dev)):.2f} deg, "
               f"p90 {np.percentile(np.abs(dev), 90):.2f} deg, "
               f"max {np.abs(dev).max():.2f} deg")

@@ -1,0 +1,11 @@
+1-high_0000-0024 = K:ealityscan\out-mid-1\1-mid_0000-0024\1-mid_0000-0024.rsalign
+1-high_0044-0068 = K:ealityscan\out-mid-1\1-mid_0020-0044\1-mid_0020-0044.rsalign
+1-high_0110-0134 = K:ealityscan\out-mid-1\1-mid_0160-0184\1-mid_0160-0184.rsalign
+1-high_0154-0178 = K:ealityscan\out-mid-1\1-mid_0200-0224\1-mid_0200-0224.rsalign
+1-high_0198-0222 = K:ealityscan\out-mid-1\1-mid_0260-0284\1-mid_0260-0284.rsalign
+1-high_0242-0266 = K:ealityscan\out-mid-1\1-mid_0460-0484\1-mid_0460-0484.rsalign
+1-high_0286-0310 = K:ealityscan\out-mid-1\1-mid_0500-0524\1-mid_0500-0524.rsalign
+1-high_0330-0354 = K:ealityscan\out-mid-1\1-mid_0540-0564\1-mid_0540-0564.rsalign
+1-high_0462-0486 = K:ealityscan\out-mid-1\1-mid_0700-0724\1-mid_0700-0724.rsalign
+1-high_0506-0530 = K:ealityscan\out-mid-1\1-mid_0840-0864\1-mid_0840-0864.rsalign
+1-high_0550-0561 = K:ealityscan\out-mid-1\1-mid_0000-0024\1-mid_0000-0024.rsalign

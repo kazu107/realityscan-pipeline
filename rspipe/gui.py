@@ -571,7 +571,18 @@ class App(ttk.Frame):
                 n_masks))
         total = sum(c.n_images for c in self.chunks)
         extra = f", {total_masks} masks found" if self.cfg.masks.enabled else ""
-        self.lbl_chunks.config(text=f"{len(self.chunks)} sets, {total} image slots{extra}")
+        # Spell out the tilings. A comma typed where a colon belonged turned
+        # "91:38:1" into a size-1 tiling and quietly added 1807 sets, which the
+        # set count alone does not make obvious.
+        by_pass: dict[str, int] = {}
+        for c in self.chunks:
+            by_pass[c.pass_name] = by_pass.get(c.pass_name, 0) + 1
+        passes = ""
+        if len(by_pass) > 1:
+            passes = "  |  " + ", ".join(
+                f"{k or 'base'} {v}" for k, v in by_pass.items())
+        self.lbl_chunks.config(
+            text=f"{len(self.chunks)} sets, {total} image slots{extra}{passes}")
 
     def on_add_seed(self):
         p = filedialog.askopenfilename(

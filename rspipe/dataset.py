@@ -157,7 +157,10 @@ def parse_chunk_sizes(spec: str, default_overlap: int,
     wanted: an overlap tuned for 25 indices is a different fraction of 15 or 40.
 
     Anything unparseable is dropped rather than guessed at, so a typo costs a
-    missing tiling instead of a wrong one.
+    missing tiling instead of a wrong one. Sizes below two are dropped as well:
+    a set of one index cannot be aligned at all - every view of an index shares
+    the rig centre, so there is no baseline - and a stray "...,1" from a comma
+    typed for a colon quietly asked for 1807 single-index sets.
     """
     out: list[tuple[int, int, int]] = []
     for token in (spec or "").replace(";", ",").split(","):
@@ -171,7 +174,7 @@ def parse_chunk_sizes(spec: str, default_overlap: int,
             passes = int(parts[2]) if len(parts) > 2 and parts[2] else default_passes
         except ValueError:
             continue
-        if size > 0:
+        if size >= 2:
             out.append((size, max(0, overlap), max(0, passes)))
     return out
 

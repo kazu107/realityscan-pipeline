@@ -1,0 +1,90 @@
+{
+  "dataset": {
+    "image_dir": "K:\\data\\jpeg\\1-mid-1",
+    "pattern": "^(?P<prefix>.+)_(?P<index>\\d+)_(?P<view>\\d+)$",
+    "extensions": ".jpg,.jpeg,.png,.tif,.tiff",
+    "index_start": 0,
+    "index_end": -1,
+    "index_step": 1,
+    "views": "",
+    "chunk_indices": 25,
+    "overlap_indices": 10,
+    "max_chunks": 0,
+    "extra_passes": 2,
+    "extra_chunk_sizes": "43:18:1,91:38:1"
+  },
+  "masks": {
+    "enabled": true,
+    "pattern": "{name}.mask.png",
+    "directory": "",
+    "usage": 1
+  },
+  "chain": {
+    "mode": "component",
+    "lock_overlap_pose": true,
+    "close_loop": true,
+    "loop_overlap_indices": 0
+  },
+  "seed": {
+    "enabled": false,
+    "spec": ""
+  },
+  "retry": {
+    "enabled": true,
+    "min_ratio": 1.0,
+    "max_attempts": 2,
+    "drop_minor_components": true,
+    "force_rematch": false
+  },
+  "merge": {
+    "enabled": true,
+    "dir_name": "_merged",
+    "force_rematch": false,
+    "align_after_merge": false,
+    "feature_source": 0,
+    "align_overrides": {},
+    "extra_components": []
+  },
+  "priors": {
+    "enabled": true,
+    "focal35": 15.1039,
+    "calibration_prior": 1,
+    "calibration_group": 1,
+    "distortion_prior": 2,
+    "distortion_model": 0,
+    "lens_group": 1
+  },
+  "align": {
+    "image_downscale": 1,
+    "max_features_per_image": 160000,
+    "max_features_per_mpx": 40000,
+    "images_overlap": "Medium",
+    "detector_sensitivity": "Ultra",
+    "feature_detection_quality": "High",
+    "max_feature_reprojection_error": 2.0,
+    "preselector_features": 40000,
+    "distortion_model": "Brown3",
+    "force_component_rematch": false,
+    "auto_recon_region": false
+  },
+  "export": {
+    "out_root": "K:\\realityscan\\out\\1-mid-1-ex",
+    "sparse": false,
+    "sparse_ext": ".ply",
+    "registration": false,
+    "registration_format": "intext_csv",
+    "registration_export_images": false,
+    "component": true,
+    "project": true,
+    "min_component_size": 5
+  },
+  "run": {
+    "exe": "C:\\Program Files\\Epic Games\\RealityScan_2.2\\RealityScan.exe",
+    "headless": true,
+    "quit_on_error": true,
+    "autosave": false,
+    "clear_cache_after_chunk": false,
+    "skip_existing": true,
+    "timeout_min": 0
+  }
+}
