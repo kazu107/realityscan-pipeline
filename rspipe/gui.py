@@ -182,11 +182,13 @@ class App(ttk.Frame):
              2)
         _row(g6, 1, "Extra set sizes",
              ttk.Entry(g6, textvariable=self.V("dataset.extra_chunk_sizes"),
-                       width=12),
-             'empty = off, e.g. "15,35". Tiles the images again at each size.\n'
-             "Different sizes put their boundaries elsewhere, and a longer set\n"
-             "also ties more distant cameras - but they only miss each other by\n"
-             "luck, while an offset pass guarantees it.",
+                       width=22),
+             'empty = off. Written size:overlap:passes, the tail optional:\n'
+             '   "15, 35"          both inherit the settings above\n'
+             '   "15:5, 40:16"     each size gets its own overlap\n'
+             '   "40:16:1"         and its own offset pass\n'
+             "An overlap tuned for 25 indices is a different fraction of 15 or\n"
+             "40, so setting it per size is usually what you want.",
              2)
         r += 1
         _row(g2, r, "Set chaining",

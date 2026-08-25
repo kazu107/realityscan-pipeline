@@ -70,11 +70,17 @@ class DatasetConfig:
     #: half a set wide exactly where the thin one failed. Costs one more full
     #: alignment pass per extra tiling.
     extra_passes: int = 0
-    #: Additional set sizes to tile the images with, as "15,35". Each becomes
-    #: its own pass. Different sizes put their boundaries in different places,
-    #: and a longer set also ties more distant cameras together - but the
-    #: boundaries only miss each other by luck, while extra_passes guarantees
-    #: it. Costs one alignment pass per size.
+    #: Additional set sizes to tile the images with. Different sizes put their
+    #: boundaries in different places, and a longer set also ties more distant
+    #: cameras together - but the boundaries only miss each other by luck,
+    #: while extra_passes guarantees it. Costs one alignment pass per size.
+    #:
+    #: Written "size:overlap:passes" per entry, the tail optional:
+    #:   "15, 35"        both inherit overlap_indices and extra_passes
+    #:   "15:5, 40:16"   each size gets its own overlap
+    #:   "40:16:1"       and its own offset passes
+    #: Inheriting is rarely right - an overlap tuned for 25 indices is a very
+    #: different fraction of 15 or 40.
     extra_chunk_sizes: str = ""
 
 

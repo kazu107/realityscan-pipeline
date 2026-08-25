@@ -147,6 +147,35 @@ def _parse_views(spec: str) -> set[int] | None:
     return out or None
 
 
+def parse_chunk_sizes(spec: str, default_overlap: int,
+                      default_passes: int) -> list[tuple[int, int, int]]:
+    """Parse ``extra_chunk_sizes`` into (size, overlap, extra passes).
+
+    Written as ``size:overlap:passes``, with the tail optional, separated by
+    commas - ``"15, 35:12, 40:16:1"``. A size that leaves them out inherits the
+    main Overlap indices and Extra offset passes, which is rarely what is
+    wanted: an overlap tuned for 25 indices is a different fraction of 15 or 40.
+
+    Anything unparseable is dropped rather than guessed at, so a typo costs a
+    missing tiling instead of a wrong one.
+    """
+    out: list[tuple[int, int, int]] = []
+    for token in (spec or "").replace(";", ",").split(","):
+        token = token.strip()
+        if not token:
+            continue
+        parts = [p.strip() for p in token.split(":")]
+        try:
+            size = int(parts[0])
+            overlap = int(parts[1]) if len(parts) > 1 and parts[1] else default_overlap
+            passes = int(parts[2]) if len(parts) > 2 and parts[2] else default_passes
+        except ValueError:
+            continue
+        if size > 0:
+            out.append((size, max(0, overlap), max(0, passes)))
+    return out
+
+
 def make_chunks(scan: Scan, cfg: DatasetConfig,
                 chain: "ChainConfig | None" = None) -> list[Chunk]:
     """Slice the scan into overlapping index windows.
@@ -180,9 +209,11 @@ def make_chunks(scan: Scan, cfg: DatasetConfig,
 
     prefix = scan.prefixes[0] if scan.prefixes else "set"
 
-    def tile(size: int, offset: int, pass_name: str) -> list[Chunk]:
+    def tile(size: int, offset: int, pass_name: str,
+             overlap_want: int | None = None) -> list[Chunk]:
         size = max(1, size)
-        overlap = min(max(0, cfg.overlap_indices), size - 1)
+        want = cfg.overlap_indices if overlap_want is None else overlap_want
+        overlap = min(max(0, want), size - 1)
         stride = size - overlap
         out: list[Chunk] = []
         pos = offset
@@ -218,9 +249,13 @@ def make_chunks(scan: Scan, cfg: DatasetConfig,
         if cfg.max_chunks > 0:
             out = out[: cfg.max_chunks]
 
-        # only the tiling that starts at the beginning can close a loop
-        if (chain is not None and chain.close_loop and len(out) > 1
-                and offset == 0):
+        # Every tiling closes its own loop. The head comes from the start of the
+        # capture, not the start of the pass: what the loop is for is tying the
+        # end of the walk back to its beginning, and an offset pass ends at the
+        # same place the base one does. Leaving offset passes open left both
+        # their ends unconstrained, at exactly the boundary they were added to
+        # cover.
+        if chain is not None and chain.close_loop and len(out) > 1:
             n = chain.loop_overlap_indices or overlap
             last = out[-1]
             taken = set(range(last.index_from, last.index_to + 1))
@@ -230,34 +265,38 @@ def make_chunks(scan: Scan, cfg: DatasetConfig,
                 last.loop_images = [p for i in loop for p in by_index.get(i, [])]
         return out
 
-    base = max(1, cfg.chunk_indices)
-    chunks = tile(base, 0, "")
+    def with_offsets(size: int, overlap_want: int, passes: int,
+                     tag: str) -> list[Chunk]:
+        """One tiling plus its offset copies.
 
-    # Offset tilings: a boundary that the base tiling failed to join across
-    # falls inside one of these sets, so the merge sees a link half a set wide
-    # instead of just the overlap.
-    stride = base - min(max(0, cfg.overlap_indices), base - 1)
-    for k in range(1, max(0, cfg.extra_passes) + 1):
-        off = round(stride * k / (cfg.extra_passes + 1))
-        if off <= 0:
-            continue
-        chunks += tile(base, off, f"p{off}")
+        The offsets exist so a boundary the merge failed to join across falls
+        inside one of their sets: the merge then has a link half a set wide
+        instead of only the overlap.
+        """
+        got = tile(size, 0, tag, overlap_want)
+        eff = min(max(0, overlap_want), size - 1)
+        stride = size - eff
+        for k in range(1, max(0, passes) + 1):
+            off = round(stride * k / (passes + 1))
+            if off <= 0:
+                continue
+            got += tile(size, off, f"{tag}p{off}" if tag else f"p{off}",
+                        overlap_want)
+        return got
+
+    base = max(1, cfg.chunk_indices)
+    chunks = with_offsets(base, cfg.overlap_indices, cfg.extra_passes, "")
 
     # A size named twice would tile twice under the same pass name, and two sets
     # sharing a name share an output folder: they overwrite each other, and
     # skip_existing reads the second as already done.
     seen_sizes = {base}
-    for token in (cfg.extra_chunk_sizes or "").replace(";", ",").split(","):
-        token = token.strip()
-        if not token:
+    for size, overlap_want, passes in parse_chunk_sizes(
+            cfg.extra_chunk_sizes, cfg.overlap_indices, cfg.extra_passes):
+        if size in seen_sizes:
             continue
-        try:
-            other = int(token)
-        except ValueError:
-            continue
-        if other > 0 and other not in seen_sizes:
-            seen_sizes.add(other)
-            chunks += tile(other, 0, f"s{other}")
+        seen_sizes.add(size)
+        chunks += with_offsets(size, overlap_want, passes, f"s{size}")
 
     for n, c in enumerate(chunks):
         c.number = n
