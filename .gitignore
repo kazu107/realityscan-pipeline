@@ -20,3 +20,6 @@ venv/
 
 # a probe run captured early on; the findings are in the README
 _smoke/smoke.log
+
+# COLMAP workspaces: databases, models and the hard-linked image trees
+/out_colmap/

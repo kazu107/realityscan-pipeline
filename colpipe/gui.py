@@ -1,0 +1,567 @@
+"""tkinter front end for the COLMAP rig pipeline.
+
+Five tabs, in the order the work happens: describe the images and the rig,
+set feature extraction and matching, set the mapper, run it, look at what came
+out. The last one matters as much as the rest - a reconstruction that is
+plausible in numbers can still be visibly bent, and the only way to know is to
+draw it.
+"""
+
+from __future__ import annotations
+
+import queue
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+from .config import ColmapPipelineConfig, find_colmap
+from .layout import scan_flat
+from .rig import RigSpec, from_extractor_settings
+from .runner import PipelineRunner, directions_from
+
+PAD = {"padx": 6, "pady": 3}
+
+
+def _row(parent, r, label, widget, hint="", hint_col=2):
+    ttk.Label(parent, text=label).grid(row=r, column=0, sticky="e", **PAD)
+    widget.grid(row=r, column=1, sticky="w", **PAD)
+    if hint:
+        ttk.Label(parent, text=hint, foreground="#777").grid(
+            row=r, column=hint_col, sticky="w", **PAD)
+    return widget
+
+
+class App(ttk.Frame):
+    _KIND_ZERO = {tk.IntVar: 0, tk.DoubleVar: 0.0, tk.BooleanVar: False}
+
+    def __init__(self, master: tk.Tk):
+        super().__init__(master)
+        self.pack(fill="both", expand=True)
+        self.cfg = ColmapPipelineConfig()
+        if not self.cfg.run.exe:
+            self.cfg.run.exe = find_colmap()
+        self.vars: dict[str, tk.Variable] = {}
+        self.events: queue.Queue = queue.Queue()
+        self.runner: PipelineRunner | None = None
+        self.model = None
+        self._done = 0
+        self._build()
+        self._config_to_ui()
+        self.after(100, self._drain)
+
+    # ---- variables -------------------------------------------------------
+    def V(self, key, kind=tk.StringVar, default=""):
+        if key not in self.vars:
+            if default == "" and kind in self._KIND_ZERO:
+                default = self._KIND_ZERO[kind]
+            self.vars[key] = kind(value=default)
+        return self.vars[key]
+
+    def _config_to_ui(self):
+        from dataclasses import fields
+        for section in fields(ColmapPipelineConfig):
+            obj = getattr(self.cfg, section.name)
+            for f in fields(obj):
+                key = f"{section.name}.{f.name}"
+                if key in self.vars:
+                    self.vars[key].set(getattr(obj, f.name))
+
+    def _ui_to_config(self):
+        from dataclasses import fields
+        for section in fields(ColmapPipelineConfig):
+            obj = getattr(self.cfg, section.name)
+            for f in fields(obj):
+                key = f"{section.name}.{f.name}"
+                if key not in self.vars:
+                    continue
+                raw = self.vars[key].get()
+                cur = getattr(obj, f.name)
+                try:
+                    if isinstance(cur, bool):
+                        val = bool(raw)
+                    elif isinstance(cur, int):
+                        val = int(raw)
+                    elif isinstance(cur, float):
+                        val = float(raw)
+                    else:
+                        val = str(raw)
+                except (TypeError, ValueError):
+                    raise ValueError(f"{key}: invalid value {raw!r}")
+                setattr(obj, f.name, val)
+
+    # ---- layout ----------------------------------------------------------
+    def _build(self):
+        bar = ttk.Frame(self)
+        bar.pack(fill="x", padx=6, pady=4)
+        ttk.Button(bar, text="Load preset", command=self.on_load).pack(side="left")
+        ttk.Button(bar, text="Save preset", command=self.on_save).pack(side="left", padx=4)
+        ttk.Label(bar, text="COLMAP").pack(side="left", padx=(16, 4))
+        ttk.Entry(bar, textvariable=self.V("run.exe"), width=54).pack(side="left")
+        ttk.Button(bar, text="...", width=3,
+                   command=lambda: self._pick_file("run.exe")).pack(side="left")
+
+        nb = ttk.Notebook(self)
+        nb.pack(fill="both", expand=True, padx=6, pady=4)
+        nb.add(self._tab_images(nb), text="1. Images & Rig")
+        nb.add(self._tab_match(nb), text="2. Feature & Match")
+        nb.add(self._tab_mapper(nb), text="3. Mapper")
+        nb.add(self._tab_run(nb), text="4. Run")
+        nb.add(self._tab_view(nb), text="5. View")
+
+    # -- tab 1 -------------------------------------------------------------
+    def _tab_images(self, parent):
+        f = ttk.Frame(parent)
+        g = ttk.LabelFrame(f, text="Extracted views (one flat folder, "
+                                   "name_frame_view.jpg)")
+        g.pack(fill="x", padx=6, pady=4)
+        _row(g, 0, "Image folder",
+             ttk.Entry(g, textvariable=self.V("dataset.image_dir"), width=60), "", 3)
+        ttk.Button(g, text="...", width=3,
+                   command=lambda: self._pick_dir("dataset.image_dir")).grid(
+            row=0, column=2, sticky="w", **PAD)
+        for r, (label, key, hint) in enumerate((
+            ("Frame from", "dataset.frame_from", ""),
+            ("Frame to", "dataset.frame_to", "-1 = last frame"),
+            ("Frame step", "dataset.frame_step", "1 = every frame"),
+            ("Views", "dataset.views", "empty = every view found"),
+        ), start=1):
+            kind = tk.StringVar if key.endswith("views") else tk.IntVar
+            _row(g, r, label, ttk.Entry(g, textvariable=self.V(key, kind), width=12), hint)
+        ttk.Checkbutton(g, text="skip frames that are missing a view",
+                        variable=self.V("dataset.require_all_views", tk.BooleanVar, True)
+                        ).grid(row=5, column=1, columnspan=2, sticky="w", **PAD)
+        ttk.Checkbutton(g, text="use masks",
+                        variable=self.V("dataset.use_masks", tk.BooleanVar, False)
+                        ).grid(row=6, column=1, sticky="w", **PAD)
+        ttk.Checkbutton(g, text="fill a white mask where one is missing",
+                        variable=self.V("dataset.fill_missing_masks", tk.BooleanVar, True)
+                        ).grid(row=6, column=2, sticky="w", **PAD)
+        ttk.Label(g, text="COLMAP DROPS an image whose mask it cannot read, so a\n"
+                          "partly-masked set silently loses those images.",
+                  foreground="#777").grid(row=7, column=1, columnspan=3,
+                                          sticky="w", **PAD)
+        _row(g, 8, "Mask name",
+             ttk.Entry(g, textvariable=self.V("dataset.mask_pattern"), width=24),
+             "{name} = image file name")
+
+        g2 = ttk.LabelFrame(f, text="Rig - the extraction directions are the rig")
+        g2.pack(fill="x", padx=6, pady=4)
+        _row(g2, 0, "Extractor settings",
+             ttk.Entry(g2, textvariable=self.V("rig.settings_path"), width=60),
+             "", 3)
+        ttk.Button(g2, text="...", width=3,
+                   command=lambda: self._pick_file("rig.settings_path")).grid(
+            row=0, column=2, sticky="w", **PAD)
+        _row(g2, 1, "Direction set",
+             ttk.Entry(g2, textvariable=self.V("rig.settings_set_name"), width=24),
+             'name as saved, e.g. "セット4" (names do not match their position)')
+        _row(g2, 2, "Ring count",
+             ttk.Entry(g2, textvariable=self.V("rig.ring_count", tk.IntVar), width=12),
+             "or generate: N yaws evenly spaced, 0 = use the settings/list above")
+        _row(g2, 3, "Ring pitch",
+             ttk.Entry(g2, textvariable=self.V("rig.ring_pitch", tk.DoubleVar), width=12))
+        _row(g2, 4, "Directions",
+             ttk.Entry(g2, textvariable=self.V("rig.directions"), width=60),
+             'or list them: "0:0, 45:0, 90:0"', 3)
+        for r, (label, key, kind, hint) in enumerate((
+            ("Horizontal FOV", "rig.fov", tk.DoubleVar, "degrees, as extracted"),
+            ("Width", "rig.width", tk.IntVar, ""),
+            ("Height", "rig.height", tk.IntVar, ""),
+            ("Reference view", "rig.ref_view", tk.IntVar, "sensor with identity pose"),
+        ), start=5):
+            _row(g2, r, label, ttk.Entry(g2, textvariable=self.V(key, kind), width=12), hint)
+
+        bar = ttk.Frame(f)
+        bar.pack(fill="x", padx=6, pady=4)
+        ttk.Button(bar, text="Scan folder", command=self.on_scan).pack(side="left")
+        ttk.Button(bar, text="Import directions",
+                   command=self.on_import_directions).pack(side="left", padx=4)
+        self.lbl_scan = ttk.Label(bar, text="")
+        self.lbl_scan.pack(side="left", padx=10)
+
+        cols = ("view", "yaw", "pitch", "rotation")
+        self.tv_dirs = ttk.Treeview(f, columns=cols, show="headings", height=10)
+        for c, w in zip(cols, (60, 90, 90, 140)):
+            self.tv_dirs.heading(c, text=c)
+            self.tv_dirs.column(c, width=w, anchor="w")
+        self.tv_dirs.pack(fill="both", expand=True, padx=6, pady=4)
+        return f
+
+    # -- tab 2 -------------------------------------------------------------
+    def _tab_match(self, parent):
+        f = ttk.Frame(parent)
+        g = ttk.LabelFrame(f, text="SIFT feature extraction")
+        g.pack(fill="x", padx=6, pady=4)
+        ttk.Checkbutton(g, text="use GPU",
+                        variable=self.V("feature.use_gpu", tk.BooleanVar, True)
+                        ).grid(row=0, column=1, sticky="w", **PAD)
+        _row(g, 1, "GPU index", ttk.Entry(g, textvariable=self.V("feature.gpu_index"),
+                                          width=12), "-1 = all")
+        _row(g, 2, "Max image size",
+             ttk.Entry(g, textvariable=self.V("feature.max_image_size", tk.IntVar),
+                       width=12), "-1 = full resolution")
+        _row(g, 3, "Max features",
+             ttk.Entry(g, textvariable=self.V("feature.max_num_features", tk.IntVar),
+                       width=12), "per image")
+
+        g2 = ttk.LabelFrame(f, text="Matching")
+        g2.pack(fill="x", padx=6, pady=4)
+        _row(g2, 0, "Method",
+             self._combo_str(g2, "match.method",
+                             ["sequential", "exhaustive", "vocab_tree"], 14),
+             "sequential is right for a walked capture")
+        _row(g2, 1, "Overlap",
+             ttk.Entry(g2, textvariable=self.V("match.overlap", tk.IntVar), width=12),
+             "how many neighbouring frames to compare against")
+        ttk.Checkbutton(g2, text="quadratic overlap",
+                        variable=self.V("match.quadratic_overlap", tk.BooleanVar, True)
+                        ).grid(row=2, column=1, sticky="w", **PAD)
+        ttk.Checkbutton(g2, text="loop detection (needs a vocabulary tree)",
+                        variable=self.V("match.loop_detection", tk.BooleanVar, False)
+                        ).grid(row=3, column=1, columnspan=2, sticky="w", **PAD)
+        _row(g2, 4, "Vocab tree",
+             ttk.Entry(g2, textvariable=self.V("match.vocab_tree_path"), width=60),
+             "", 3)
+        ttk.Button(g2, text="...", width=3,
+                   command=lambda: self._pick_file("match.vocab_tree_path")).grid(
+            row=4, column=2, sticky="w", **PAD)
+        ttk.Checkbutton(g2, text="skip pairs inside one frame",
+                        variable=self.V("match.skip_pairs_in_same_frame",
+                                        tk.BooleanVar, True)
+                        ).grid(row=5, column=1, sticky="w", **PAD)
+        ttk.Label(g2, text="views of a frame share the optical centre - a pair from\n"
+                           "one frame has no baseline and can only add bad geometry",
+                  foreground="#777").grid(row=5, column=2, sticky="w", **PAD)
+        ttk.Checkbutton(g2, text="verify pairs against the rig",
+                        variable=self.V("match.rig_verification", tk.BooleanVar, True)
+                        ).grid(row=6, column=1, sticky="w", **PAD)
+        ttk.Checkbutton(g2, text="use GPU for matching",
+                        variable=self.V("match.use_gpu", tk.BooleanVar, True)
+                        ).grid(row=7, column=1, sticky="w", **PAD)
+        return f
+
+    # -- tab 3 -------------------------------------------------------------
+    def _tab_mapper(self, parent):
+        f = ttk.Frame(parent)
+        g = ttk.LabelFrame(f, text="What bundle adjustment is allowed to move")
+        g.pack(fill="x", padx=6, pady=4)
+        for r, (text, key, hint) in enumerate((
+            ("refine the rig (sensor_from_rig)", "mapper.refine_sensor_from_rig",
+             "off = hold the rig rigid, which is the point of declaring it"),
+            ("refine focal length", "mapper.refine_focal_length",
+             "off = keep the PINHOLE intrinsics as extracted"),
+            ("refine principal point", "mapper.refine_principal_point", ""),
+            ("refine extra params", "mapper.refine_extra_params", ""),
+        )):
+            ttk.Checkbutton(g, text=text,
+                            variable=self.V(key, tk.BooleanVar, False)
+                            ).grid(row=r, column=1, sticky="w", **PAD)
+            if hint:
+                ttk.Label(g, text=hint, foreground="#777").grid(
+                    row=r, column=2, sticky="w", **PAD)
+
+        g2 = ttk.LabelFrame(f, text="Solver")
+        g2.pack(fill="x", padx=6, pady=4)
+        ttk.Checkbutton(g2, text="GPU bundle adjustment (Caspar, COLMAP 4.1+)",
+                        variable=self.V("mapper.ba_use_gpu", tk.BooleanVar, True)
+                        ).grid(row=0, column=1, columnspan=2, sticky="w", **PAD)
+        _row(g2, 1, "BA GPU index",
+             ttk.Entry(g2, textvariable=self.V("mapper.ba_gpu_index"), width=12),
+             "-1 = pick automatically")
+        _row(g2, 2, "Min matches",
+             ttk.Entry(g2, textvariable=self.V("mapper.min_num_matches", tk.IntVar),
+                       width=12))
+        _row(g2, 3, "Init min inliers",
+             ttk.Entry(g2, textvariable=self.V("mapper.init_min_num_inliers", tk.IntVar),
+                       width=12))
+        ttk.Checkbutton(g2, text="allow multiple models",
+                        variable=self.V("mapper.multiple_models", tk.BooleanVar, False)
+                        ).grid(row=4, column=1, sticky="w", **PAD)
+        ttk.Checkbutton(g2, text="use the global mapper instead of incremental",
+                        variable=self.V("mapper.global_mapper", tk.BooleanVar, False)
+                        ).grid(row=5, column=1, columnspan=2, sticky="w", **PAD)
+        return f
+
+    # -- tab 4 -------------------------------------------------------------
+    def _tab_run(self, parent):
+        f = ttk.Frame(parent)
+        g = ttk.LabelFrame(f, text="Workspace")
+        g.pack(fill="x", padx=6, pady=4)
+        _row(g, 0, "Work folder",
+             ttk.Entry(g, textvariable=self.V("export.work_root"), width=60), "", 3)
+        ttk.Button(g, text="...", width=3,
+                   command=lambda: self._pick_dir("export.work_root")).grid(
+            row=0, column=2, sticky="w", **PAD)
+        ttk.Checkbutton(g, text="skip stages whose output already exists",
+                        variable=self.V("run.skip_existing", tk.BooleanVar, True)
+                        ).grid(row=1, column=1, columnspan=2, sticky="w", **PAD)
+        _row(g, 2, "Hang timeout (min)",
+             ttk.Entry(g, textvariable=self.V("run.timeout_min", tk.IntVar), width=12),
+             "0 = never. Re-arms while the process keeps using CPU,\n"
+             "so it cuts off a hang and not a long computation.")
+
+        bar = ttk.Frame(f)
+        bar.pack(fill="x", padx=6, pady=4)
+        self.btn_start = ttk.Button(bar, text="Start", command=self.on_start)
+        self.btn_start.pack(side="left")
+        self.btn_cancel = ttk.Button(bar, text="Cancel", command=self.on_cancel,
+                                     state="disabled")
+        self.btn_cancel.pack(side="left", padx=4)
+        self.prog = ttk.Progressbar(bar, length=260, mode="determinate")
+        self.prog.pack(side="left", padx=10)
+        self.lbl_run = ttk.Label(bar, text="")
+        self.lbl_run.pack(side="left")
+
+        cols = ("stage", "status", "seconds", "message")
+        self.tv_stages = ttk.Treeview(f, columns=cols, show="headings", height=7)
+        for c, w in zip(cols, (110, 90, 80, 520)):
+            self.tv_stages.heading(c, text=c)
+            self.tv_stages.column(c, width=w, anchor="w")
+        self.tv_stages.pack(fill="x", padx=6, pady=4)
+
+        self.txt_log = tk.Text(f, height=14, wrap="none")
+        self.txt_log.pack(fill="both", expand=True, padx=6, pady=4)
+        return f
+
+    # -- tab 5 -------------------------------------------------------------
+    def _tab_view(self, parent):
+        f = ttk.Frame(parent)
+        bar = ttk.Frame(f)
+        bar.pack(fill="x", padx=6, pady=4)
+        ttk.Button(bar, text="Load model", command=self.on_load_model).pack(side="left")
+        ttk.Label(bar, text="Colour by").pack(side="left", padx=(16, 4))
+        self._combo_str(bar, "_view_colour", ["frame", "point colour", "sensor"],
+                        14).pack(side="left")
+        ttk.Label(bar, text="Point size").pack(side="left", padx=(16, 4))
+        ttk.Entry(bar, textvariable=self.V("_view_psize", tk.DoubleVar, 0.4),
+                  width=6).pack(side="left")
+        ttk.Button(bar, text="Redraw", command=self.on_draw).pack(side="left", padx=8)
+        self.lbl_model = ttk.Label(bar, text="no model loaded")
+        self.lbl_model.pack(side="left", padx=10)
+
+        self.view_holder = ttk.Frame(f)
+        self.view_holder.pack(fill="both", expand=True, padx=6, pady=4)
+        self._canvas = None
+        return f
+
+    # ---- helpers ---------------------------------------------------------
+    def _combo_str(self, parent, key, values, width=12):
+        var = self.V(key, tk.StringVar, values[0])
+        return ttk.Combobox(parent, textvariable=var, values=values,
+                            state="readonly", width=width)
+
+    def _pick_dir(self, key):
+        p = filedialog.askdirectory()
+        if p:
+            self.V(key).set(str(Path(p)))
+
+    def _pick_file(self, key):
+        p = filedialog.askopenfilename()
+        if p:
+            self.V(key).set(str(Path(p)))
+
+    # ---- actions ---------------------------------------------------------
+    def on_load(self):
+        p = filedialog.askopenfilename(filetypes=[("preset", "*.json")])
+        if not p:
+            return
+        self.cfg = ColmapPipelineConfig.load(p)
+        self._config_to_ui()
+
+    def on_save(self):
+        p = filedialog.asksaveasfilename(defaultextension=".json",
+                                         filetypes=[("preset", "*.json")])
+        if not p:
+            return
+        try:
+            self._ui_to_config()
+        except ValueError as e:
+            messagebox.showerror("Settings", str(e))
+            return
+        self.cfg.save(p)
+
+    def on_scan(self):
+        try:
+            self._ui_to_config()
+        except ValueError as e:
+            messagebox.showerror("Settings", str(e))
+            return
+        d = self.cfg.dataset
+        if not d.image_dir:
+            return
+        frames = scan_flat(Path(d.image_dir), d.pattern)
+        if not frames:
+            self.lbl_scan.config(text="nothing matched the naming pattern")
+            return
+        views = sorted({v for f in frames.values() for v in f})
+        short = sum(1 for v in frames.values() if len(v) != len(views))
+        idx = sorted(frames)
+        self.lbl_scan.config(
+            text=f"{len(frames)} frames ({idx[0]}-{idx[-1]}), views {views}"
+                 + (f", {short} frame(s) missing a view" if short else ""))
+        self.on_import_directions()
+
+    def on_import_directions(self):
+        try:
+            self._ui_to_config()
+        except ValueError as e:
+            messagebox.showerror("Settings", str(e))
+            return
+        dirs, notes = directions_from(self.cfg)
+        self.tv_dirs.delete(*self.tv_dirs.get_children())
+        spec = RigSpec(directions=dirs, fov=self.cfg.rig.fov,
+                       width=self.cfg.rig.width, height=self.cfg.rig.height,
+                       ref_index=self.cfg.rig.ref_view)
+        cams = spec.to_config()[0]["cameras"] if dirs else []
+        from .rig import quaternion_angle
+        for d, c in zip(dirs, cams):
+            rot = ("reference" if c.get("ref_sensor")
+                   else f"{quaternion_angle(c['cam_from_rig_rotation']):.2f} deg")
+            self.tv_dirs.insert("", "end",
+                                values=(f"{d.index:02d}", f"{d.yaw:g}",
+                                        f"{d.pitch:g}", rot))
+        for n in notes:
+            self._log(f"[colpipe] {n}")
+
+    def on_start(self):
+        try:
+            self._ui_to_config()
+        except ValueError as e:
+            messagebox.showerror("Settings", str(e))
+            return
+        if not self.cfg.export.work_root:
+            messagebox.showerror("Run", "pick a work folder first")
+            return
+        self.tv_stages.delete(*self.tv_stages.get_children())
+        self.txt_log.delete("1.0", "end")
+        self._done = 0
+        self.runner = PipelineRunner(self.cfg, lambda e, p: self.events.put((e, p)))
+        self.runner.start()
+        self.btn_start.config(state="disabled")
+        self.btn_cancel.config(state="normal")
+
+    def on_cancel(self):
+        if self.runner:
+            self.runner.cancel()
+
+    def on_load_model(self):
+        from .model import read_model
+        start = self.cfg.export.work_root or ""
+        p = filedialog.askdirectory(title="pick a sparse model folder (sparse/0)",
+                                    initialdir=start)
+        if not p:
+            return
+        try:
+            self.model = read_model(Path(p))
+        except Exception as e:                                # noqa: BLE001
+            messagebox.showerror("Model", str(e))
+            return
+        self.lbl_model.config(text=self.model.summary())
+        self.on_draw()
+
+    def on_draw(self):
+        if self.model is None:
+            return
+        import numpy as np
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+        from matplotlib.figure import Figure
+        from .model import frames_from_names
+
+        pts, cols = self.model.points, self.model.colors
+        centres = self.model.centres
+        if not len(centres):
+            return
+        # Draw the plane the walk lies in, not whichever pair of axes the
+        # solver happened to use - a side view makes a good result look flat.
+        c = centres - centres.mean(0)
+        _, _, vt = np.linalg.svd(c, full_matrices=False)
+        basis = vt[:2]
+        origin = centres.mean(0)
+
+        fig = Figure(figsize=(9, 7), dpi=100)
+        ax = fig.add_subplot(111)
+        if len(pts):
+            step = max(1, len(pts) // 400_000)
+            q = (pts[::step] - origin) @ basis.T
+            lim = np.percentile(np.abs((centres - origin) @ basis.T), 99.5) * 2.0
+            keep = (np.abs(q) < lim).all(1)
+            mode = self.V("_view_colour").get()
+            colour = (cols[::step][keep] / 255.0) if mode == "point colour" else "0.75"
+            ax.scatter(q[keep, 0], q[keep, 1],
+                       s=float(self.V("_view_psize", tk.DoubleVar, 0.4).get()),
+                       c=colour, marker=".", linewidths=0, alpha=0.5)
+
+        per = frames_from_names(self.model)
+        mode = self.V("_view_colour").get()
+        if mode == "sensor":
+            for name in sorted(per):
+                pc = np.array([per[name][k] for k in sorted(per[name])])
+                pp = (pc - origin) @ basis.T
+                ax.plot(pp[:, 0], pp[:, 1], lw=0.8, label=name)
+            ax.legend(fontsize=7, ncol=2)
+        else:
+            ref = sorted(per)[0] if per else None
+            if ref:
+                keys = sorted(per[ref])
+                pc = np.array([per[ref][k] for k in keys])
+                pp = (pc - origin) @ basis.T
+                sc = ax.scatter(pp[:, 0], pp[:, 1], s=6, c=keys, cmap="turbo",
+                                zorder=3)
+                ax.plot(pp[:, 0], pp[:, 1], lw=0.5, color="k", alpha=0.3, zorder=2)
+                fig.colorbar(sc, ax=ax, label="frame", fraction=0.03, pad=0.01)
+        ax.set_aspect("equal")
+        ax.set_title(self.model.summary())
+
+        for w in self.view_holder.winfo_children():
+            w.destroy()
+        canvas = FigureCanvasTkAgg(fig, master=self.view_holder)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        self._canvas = canvas
+
+    # ---- events ----------------------------------------------------------
+    def _log(self, line: str):
+        self.txt_log.insert("end", line + "\n")
+        self.txt_log.see("end")
+
+    def _drain(self):
+        try:
+            while True:
+                event, payload = self.events.get_nowait()
+                self._handle(event, payload)
+        except queue.Empty:
+            pass
+        self.after(100, self._drain)
+
+    def _handle(self, event: str, payload: dict):
+        if event == "pipeline_start":
+            self.prog.config(maximum=payload["total"], value=0)
+        elif event == "stage_start":
+            r = payload["result"]
+            self.tv_stages.insert("", "end", iid=r.name,
+                                  values=(r.name, "running", "", ""))
+        elif event == "stage_end":
+            r = payload["result"]
+            if self.tv_stages.exists(r.name):
+                self.tv_stages.item(r.name, values=(
+                    r.name, r.status, f"{r.seconds:.0f}", r.message))
+            self._done += 1
+            self.prog.config(value=self._done)
+        elif event == "log":
+            self._log(payload["line"])
+        elif event == "pipeline_end":
+            self.lbl_run.config(
+                text=f"{payload['ok']}/{payload['total']} in "
+                     f"{payload['seconds']:.0f}s")
+            self.btn_start.config(state="normal")
+            self.btn_cancel.config(state="disabled")
+
+
+def main() -> int:
+    root = tk.Tk()
+    root.title("colpipe - COLMAP rig pipeline")
+    root.geometry("1180x820")
+    App(root)
+    root.mainloop()
+    return 0
