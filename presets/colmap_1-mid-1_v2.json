@@ -1,0 +1,82 @@
+{
+  "dataset": {
+    "image_dir": "K:\\data\\jpeg\\1-mid-1",
+    "pattern": "^(?P<prefix>.+)_(?P<frame>\\d+)_(?P<view>\\d+)$",
+    "views": "",
+    "frame_from": 0,
+    "frame_to": 149,
+    "frame_step": 1,
+    "require_all_views": true,
+    "use_masks": true,
+    "fill_missing_masks": true,
+    "mask_pattern": "{name}.mask.png",
+    "mask_dir": ""
+  },
+  "rig": {
+    "directions": "",
+    "ring_count": 8,
+    "ring_pitch": 0.0,
+    "ring_start_yaw": 0.0,
+    "fov": 100.0,
+    "width": 2133,
+    "height": 2133,
+    "ref_view": 0,
+    "camera_model": "PINHOLE",
+    "settings_path": "",
+    "settings_set_name": ""
+  },
+  "feature": {
+    "use_gpu": true,
+    "gpu_index": "-1",
+    "max_image_size": 3200,
+    "max_num_features": 32768,
+    "estimate_affine_shape": false,
+    "domain_size_pooling": false
+  },
+  "match": {
+    "method": "sequential",
+    "overlap": 5,
+    "quadratic_overlap": true,
+    "loop_detection": false,
+    "loop_detection_period": 10,
+    "loop_detection_num_images": 50,
+    "vocab_tree_path": "",
+    "use_gpu": true,
+    "gpu_index": "-1",
+    "max_num_matches": 32768,
+    "skip_pairs_in_same_frame": false,
+    "rig_verification": true
+  },
+  "pairs": {
+    "enabled": false,
+    "loop_window": 40,
+    "loop_max_view_sep": 0,
+    "same_frame": true,
+    "max_view_sep": 2
+  },
+  "mapper": {
+    "refine_sensor_from_rig": false,
+    "refine_focal_length": false,
+    "refine_principal_point": false,
+    "refine_extra_params": false,
+    "ba_global_backend": "CERES",
+    "ba_local_backend": "CERES",
+    "ba_use_gpu": false,
+    "ba_gpu_index": "-1",
+    "min_num_matches": 15,
+    "init_min_num_inliers": 100,
+    "multiple_models": false,
+    "global_mapper": false
+  },
+  "export": {
+    "work_root": "K:/realityscan/out_colmap/_v2_150",
+    "export_text": false,
+    "export_ply": true
+  },
+  "run": {
+    "exe": "D:\\h3dgs-work\\tools\\colmap420\\bin\\colmap.exe",
+    "timeout_min": 60,
+    "skip_existing": false,
+    "stages": ""
+  }
+}

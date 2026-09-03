@@ -25,6 +25,7 @@ from typing import Callable
 from . import cli
 from .config import ColmapPipelineConfig
 from .layout import build as build_layout
+from .pairs import write_pairs
 from .rig import Direction, RigSpec, from_extractor_settings, ring
 
 Emit = Callable[[str, dict], None]
@@ -101,7 +102,8 @@ def directions_from(cfg: ColmapPipelineConfig) -> tuple[list[Direction], list[st
 class PipelineRunner:
     """Sequential runner. Call :meth:`start` from the GUI thread."""
 
-    STAGES = ("layout", "features", "rig", "match", "map", "export")
+    STAGES = ("layout", "features", "rig", "match", "pairs", "map",
+              "export")
 
     def __init__(self, cfg: ColmapPipelineConfig, emit: Emit):
         self.cfg = cfg
@@ -140,10 +142,23 @@ class PipelineRunner:
     def _run_all(self) -> None:
         p = cli.paths_for(self.cfg)
         p.ensure()
+        wanted = {x.strip() for x in self.cfg.run.stages.split(",") if x.strip()}
+        unknown = wanted - set(self.STAGES)
+        if unknown:
+            self.emit("log", {"line": f"[colpipe] unknown stage(s) "
+                                      f"{sorted(unknown)}, expected "
+                                      f"{list(self.STAGES)}"})
         self.results = [StageResult(name=s) for s in self.STAGES]
+        for r in self.results:
+            if wanted and r.name not in wanted:
+                r.status = "off"
+                r.message = "not in run.stages"
         self.emit("pipeline_start", {"total": len(self.results)})
         t0 = time.time()
         for res in self.results:
+            if res.status == "off":
+                self.emit("stage_end", {"result": res})
+                continue
             if self._cancel.is_set():
                 res.status = "cancelled"
                 self.emit("stage_end", {"result": res})
@@ -159,10 +174,11 @@ class PipelineRunner:
             self.emit("stage_end", {"result": res})
             if res.status == "failed":
                 break
+        ran = [r for r in self.results if r.status != "off"]
         self.emit("pipeline_end", {
             "seconds": time.time() - t0,
-            "ok": sum(r.status in ("ok", "skipped") for r in self.results),
-            "total": len(self.results)})
+            "ok": sum(r.status in ("ok", "skipped") for r in ran),
+            "total": len(ran)})
 
     def _stage_layout(self, res: StageResult, p: cli.Paths) -> None:
         d = self.cfg.dataset
@@ -225,7 +241,47 @@ class PipelineRunner:
         self._spawn(cli.rig_configurator(self.cfg, p), p.logs / "rig.log", res)
 
     def _stage_match(self, res: StageResult, p: cli.Paths) -> None:
+        # matching is the long pole - five hours on 1-mid-1 - so never repeat it
+        # by accident just because the run was started again
+        if self.cfg.run.skip_existing and p.database.is_file():
+            try:
+                import sqlite3
+                with sqlite3.connect(f"file:{p.database}?mode=ro",
+                                     uri=True) as db:
+                    (n,) = db.execute("select count(*) from two_view_geometries "
+                                      "where rows > 0").fetchone()
+            except Exception:                                 # noqa: BLE001
+                n = 0
+            if n:
+                res.status = "skipped"
+                res.message = f"{n} verified pairs already in the database"
+                return
         self._spawn(cli.matcher(self.cfg, p), p.logs / "match.log", res)
+
+    def _stage_pairs(self, res: StageResult, p: cli.Paths) -> None:
+        c = self.cfg.pairs
+        if not c.enabled:
+            res.status = "skipped"
+            res.message = "extra pairs not requested"
+            return
+        t0 = time.time()
+        plan = write_pairs(
+            p.database, p.pair_list, loop_window=c.loop_window,
+            same_frame=c.same_frame, max_view_sep=c.max_view_sep,
+            loop_max_view_sep=c.loop_max_view_sep)
+        for m in plan.messages:
+            self.emit("log", {"line": f"[colpipe] {m}"})
+        res.detail = {"loop": plan.loop, "same_frame": plan.same_frame,
+                      "total": plan.total}
+        res.seconds = time.time() - t0
+        if plan.total == 0:
+            res.status = "skipped"
+            res.message = "nothing to add"
+            return
+        self._spawn(cli.matches_importer(self.cfg, p), p.logs / "pairs.log", res)
+        if res.status == "ok":
+            res.message = (f"{plan.loop} loop-seam + {plan.same_frame} "
+                           f"same-frame pairs matched")
 
     def _stage_map(self, res: StageResult, p: cli.Paths) -> None:
         models = [d for d in p.sparse.iterdir() if d.is_dir()] \
@@ -234,6 +290,19 @@ class PipelineRunner:
             res.status = "skipped"
             res.message = f"{len(models)} model(s) already present"
             return
+        if models:
+            # the mapper writes straight into this folder, so the result of the
+            # last run would be gone - and a run this long is worth keeping to
+            # compare against
+            n = 1
+            while (alt := p.sparse.with_name(
+                    f"{p.sparse.name}_prev{n:02d}")).exists():
+                n += 1
+            p.sparse.rename(alt)
+            p.sparse.mkdir(parents=True, exist_ok=True)
+            self.emit("log", {"line": f"[colpipe] kept the previous model as "
+                                      f"{alt.name}"})
+            res.detail["previous"] = str(alt)
         self._spawn(cli.mapper(self.cfg, p), p.logs / "map.log", res)
 
     def _stage_export(self, res: StageResult, p: cli.Paths) -> None:

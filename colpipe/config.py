@@ -85,12 +85,41 @@ class MatchConfig:
     use_gpu: bool = True
     gpu_index: str = "-1"
     max_num_matches: int = 32768
-    #: Views of one frame share the optical centre, so a pair drawn from the
-    #: same frame has no baseline - matching them costs time and can only feed
-    #: the reconstruction bad two-view geometries.
-    skip_pairs_in_same_frame: bool = True
+    #: Views of one frame share the optical centre, so such a pair cannot be
+    #: triangulated from on its own. Skipping it anyway was a mistake: with the
+    #: rig declared the relative pose is known, `rig_verification` checks the
+    #: matches against it, and the pair merges two per-view track chains that
+    #: otherwise never meet. On a 100 deg extraction at 45 deg spacing the
+    #: adjacent views overlap by 55 deg - the largest overlap in the set. With
+    #: these skipped on 1-mid-1 the median track span was 3 frames and no point
+    #: spanned more than 500, so scale drifted freely along an 865-frame chain.
+    #: COLMAP's own default is to keep them.
+    skip_pairs_in_same_frame: bool = False
     #: Verify pairs against the declared rig (COLMAP 4.x).
     rig_verification: bool = True
+
+
+@dataclass
+class ExtraPairsConfig:
+    """Pairs the frame index cannot express, matched into an existing database.
+
+    Runs `matches_importer` over a hand-written pair list. The features are
+    already extracted, so this repairs a finished workspace in minutes instead
+    of repeating the whole matching pass.
+    """
+
+    enabled: bool = False
+    #: Pair the last N frames against the first N, to close a walk that returns
+    #: to where it started. 0 = leave the loop open.
+    loop_window: int = 40
+    #: Cap the view separation at the seam (0 = every combination). The walk can
+    #: come back on any heading, so which views face the same way is not known.
+    loop_max_view_sep: int = 0
+    #: Also pair the views inside one frame, when the matching pass skipped them.
+    same_frame: bool = True
+    #: Ring separation to pair up to: 1 is the 45 deg neighbour, 2 the 90 deg
+    #: one. A 100 deg field does not reach 135 deg, so past 2 it is pure cost.
+    max_view_sep: int = 2
 
 
 @dataclass
@@ -102,8 +131,18 @@ class MapperConfig:
     refine_focal_length: bool = False
     refine_principal_point: bool = False
     refine_extra_params: bool = False
-    #: Caspar, the GPU bundle adjustment backend added in COLMAP 4.1.0.
-    ba_use_gpu: bool = True
+    #: Bundle adjustment backend: CERES or CASPAR. Caspar is COLMAP's own GPU
+    #: backend, added in 4.1.0, and it is selected HERE - not by `ba_use_gpu`,
+    #: which only asks Ceres for its CUDA linear solvers. Measured on the
+    #: official Windows 4.2.0 build: CASPAR refuses with "COLMAP was built
+    #: without CASPAR_ENABLED; rebuild with -DCASPAR_ENABLED=ON", and
+    #: ba_use_gpu warns "Ceres was compiled without CUDA support" and falls
+    #: back to the CPU. So on that binary bundle adjustment is CPU-only
+    #: whatever these say, and a 1-mid-1 map ran 2.6 hours on the CPU.
+    ba_global_backend: str = "CERES"
+    ba_local_backend: str = "CERES"
+    #: Ceres' own CUDA solvers. Needs a Ceres built with CUDA and cuDSS.
+    ba_use_gpu: bool = False
     ba_gpu_index: str = "-1"
     min_num_matches: int = 15
     init_min_num_inliers: int = 100
@@ -126,6 +165,11 @@ class RunConfig:
     #: A hang detector, not a deadline - the timer re-arms while it works.
     timeout_min: int = 120
     skip_existing: bool = True
+    #: Which stages to run, comma separated; empty means all of them. Repairing
+    #: a finished workspace means running "pairs,map,export" over the database
+    #: that is already there - matching 1-mid-1 took five hours and there is no
+    #: version of "add the loop pairs" that should pay that again.
+    stages: str = ""
 
 
 @dataclass
@@ -134,6 +178,7 @@ class ColmapPipelineConfig:
     rig: RigConfig = field(default_factory=RigConfig)
     feature: FeatureConfig = field(default_factory=FeatureConfig)
     match: MatchConfig = field(default_factory=MatchConfig)
+    pairs: ExtraPairsConfig = field(default_factory=ExtraPairsConfig)
     mapper: MapperConfig = field(default_factory=MapperConfig)
     export: ExportConfig = field(default_factory=ExportConfig)
     run: RunConfig = field(default_factory=RunConfig)

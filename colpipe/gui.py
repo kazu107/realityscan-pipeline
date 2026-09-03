@@ -66,6 +66,10 @@ class App(ttk.Frame):
                 key = f"{section.name}.{f.name}"
                 if key in self.vars:
                     self.vars[key].set(getattr(obj, f.name))
+        # the stage boxes are one field spread over several widgets
+        want = {x.strip() for x in self.cfg.run.stages.split(",") if x.strip()}
+        for st, v in getattr(self, "_stage_vars", {}).items():
+            v.set(st in want if want else True)
 
     def _ui_to_config(self):
         from dataclasses import fields
@@ -89,6 +93,12 @@ class App(ttk.Frame):
                 except (TypeError, ValueError):
                     raise ValueError(f"{key}: invalid value {raw!r}")
                 setattr(obj, f.name, val)
+        boxes = getattr(self, "_stage_vars", {})
+        if boxes:
+            on = [st for st, v in boxes.items() if v.get()]
+            if not on:
+                raise ValueError("no stages are ticked, so there is nothing to run")
+            self.cfg.run.stages = "" if len(on) == len(boxes) else ",".join(on)
 
     # ---- layout ----------------------------------------------------------
     def _build(self):
@@ -228,10 +238,13 @@ class App(ttk.Frame):
             row=4, column=2, sticky="w", **PAD)
         ttk.Checkbutton(g2, text="skip pairs inside one frame",
                         variable=self.V("match.skip_pairs_in_same_frame",
-                                        tk.BooleanVar, True)
+                                        tk.BooleanVar, False)
                         ).grid(row=5, column=1, sticky="w", **PAD)
-        ttk.Label(g2, text="views of a frame share the optical centre - a pair from\n"
-                           "one frame has no baseline and can only add bad geometry",
+        ttk.Label(g2, text="leave this OFF. Adjacent views of a 100deg extraction on\n"
+                           "45deg spacing overlap by 55deg, the largest overlap in the\n"
+                           "set, and with the rig declared they are verified against\n"
+                           "the known pose. Skipped, they left the median track span\n"
+                           "at 3 frames on 1-mid-1 and scale drifted along the walk",
                   foreground="#777").grid(row=5, column=2, sticky="w", **PAD)
         ttk.Checkbutton(g2, text="verify pairs against the rig",
                         variable=self.V("match.rig_verification", tk.BooleanVar, True)
@@ -239,6 +252,35 @@ class App(ttk.Frame):
         ttk.Checkbutton(g2, text="use GPU for matching",
                         variable=self.V("match.use_gpu", tk.BooleanVar, True)
                         ).grid(row=7, column=1, sticky="w", **PAD)
+
+        g3 = ttk.LabelFrame(f, text="Close the loop - pairs the frame index "
+                                    "cannot reach")
+        g3.pack(fill="x", padx=6, pady=4)
+        ttk.Checkbutton(g3, text="add extra pairs to the database",
+                        variable=self.V("pairs.enabled", tk.BooleanVar, False)
+                        ).grid(row=0, column=1, columnspan=2, sticky="w", **PAD)
+        ttk.Label(g3, text="pairs the last N frames against the first N, for a walk\n"
+                           "that returns to where it started. The features are already\n"
+                           "extracted, so this is a matches_importer pass - minutes,\n"
+                           "not another whole match. On 1-mid-1 nothing at all tied\n"
+                           "frame <60 to frame >860, and the last 26 frames ran away",
+                  foreground="#777").grid(row=1, column=2, sticky="w", **PAD)
+        _row(g3, 1, "Loop window",
+             ttk.Entry(g3, textvariable=self.V("pairs.loop_window", tk.IntVar),
+                       width=12), "", 3)
+        _row(g3, 2, "Seam view sep",
+             ttk.Entry(g3, textvariable=self.V("pairs.loop_max_view_sep",
+                                               tk.IntVar), width=12),
+             "0 = every view combination at the seam; the walk can come\n"
+             "back on any heading, so which views agree is not known")
+        ttk.Checkbutton(g3, text="also pair the views inside one frame",
+                        variable=self.V("pairs.same_frame", tk.BooleanVar, True)
+                        ).grid(row=3, column=1, sticky="w", **PAD)
+        _row(g3, 4, "Frame view sep",
+             ttk.Entry(g3, textvariable=self.V("pairs.max_view_sep", tk.IntVar),
+                       width=12),
+             "1 = the 45deg neighbour, 2 = also 90deg. A 100deg field\n"
+             "does not reach 135deg, so past 2 is pure cost")
         return f
 
     # -- tab 3 -------------------------------------------------------------
@@ -266,6 +308,12 @@ class App(ttk.Frame):
         ttk.Checkbutton(g2, text="GPU bundle adjustment (Caspar, COLMAP 4.1+)",
                         variable=self.V("mapper.ba_use_gpu", tk.BooleanVar, True)
                         ).grid(row=0, column=1, columnspan=2, sticky="w", **PAD)
+        _row(g2, 0, "BA backend",
+             self._combo_str(g2, "mapper.ba_global_backend",
+                             ["CERES", "CASPAR"], 14),
+             "CASPAR is COLMAP's GPU backend - and the official Windows\n"
+             "4.2.0 build refuses it: built without CASPAR_ENABLED. Its\n"
+             "Ceres has no CUDA either, so BA is CPU-only on that binary")
         _row(g2, 1, "BA GPU index",
              ttk.Entry(g2, textvariable=self.V("mapper.ba_gpu_index"), width=12),
              "-1 = pick automatically")
@@ -296,6 +344,22 @@ class App(ttk.Frame):
         ttk.Checkbutton(g, text="skip stages whose output already exists",
                         variable=self.V("run.skip_existing", tk.BooleanVar, True)
                         ).grid(row=1, column=1, columnspan=2, sticky="w", **PAD)
+        g4 = ttk.LabelFrame(f, text="Stages to run")
+        g4.pack(fill="x", padx=6, pady=4)
+        self._stage_vars = {}
+        for i, st in enumerate(PipelineRunner.STAGES):
+            v = tk.BooleanVar(value=True)
+            self._stage_vars[st] = v
+            ttk.Checkbutton(g4, text=st, variable=v).grid(
+                row=0, column=i, sticky="w", **PAD)
+        ttk.Label(g4, text="all of them for a fresh run. To repair a finished\n"
+                           "workspace - add the loop pairs and map again - tick\n"
+                           "only pairs, map and export: the features and the\n"
+                           "matches are already in the database",
+                  foreground="#777").grid(row=1, column=0,
+                                          columnspan=len(PipelineRunner.STAGES),
+                                          sticky="w", **PAD)
+
         _row(g, 2, "Hang timeout (min)",
              ttk.Entry(g, textvariable=self.V("run.timeout_min", tk.IntVar), width=12),
              "0 = never. Re-arms while the process keeps using CPU,\n"

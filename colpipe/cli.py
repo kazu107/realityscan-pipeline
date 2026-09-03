@@ -20,6 +20,7 @@ class Paths:
     images: Path
     database: Path
     rig_config: Path
+    pair_list: Path
     sparse: Path
     sparse_text: Path
     ply: Path
@@ -39,6 +40,7 @@ def paths_for(cfg: ColmapPipelineConfig) -> Paths:
         images=root / "images",
         database=root / "database.db",
         rig_config=root / "rig_config.json",
+        pair_list=root / "extra_pairs.txt",
         sparse=root / "sparse",
         sparse_text=root / "sparse_text",
         ply=root / "sparse.ply",
@@ -119,6 +121,24 @@ def matcher(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
     return args
 
 
+def matches_importer(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
+    """Match and verify exactly the pairs in the list, into the same database."""
+    m = cfg.match
+    return [
+        cfg.run.exe, "matches_importer",
+        "--database_path", str(p.database),
+        "--match_list_path", str(p.pair_list),
+        "--match_type", "pairs",
+        "--FeatureMatching.use_gpu", _flag(m.use_gpu),
+        "--FeatureMatching.gpu_index", str(m.gpu_index),
+        "--FeatureMatching.max_num_matches", str(m.max_num_matches),
+        # the point of these pairs is the ones inside a frame, so do not let
+        # the importer drop them again
+        "--FeatureMatching.skip_image_pairs_in_same_frame", "0",
+        "--FeatureMatching.rig_verification", _flag(m.rig_verification),
+    ]
+
+
 def mapper(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
     m = cfg.mapper
     cmd = "global_mapper" if m.global_mapper else "mapper"
@@ -135,6 +155,8 @@ def mapper(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
         "--Mapper.ba_refine_focal_length", _flag(m.refine_focal_length),
         "--Mapper.ba_refine_principal_point", _flag(m.refine_principal_point),
         "--Mapper.ba_refine_extra_params", _flag(m.refine_extra_params),
+        "--Mapper.ba_global_backend", m.ba_global_backend,
+        "--Mapper.ba_local_backend", m.ba_local_backend,
         "--Mapper.ba_use_gpu", _flag(m.ba_use_gpu),
         "--Mapper.ba_gpu_index", str(m.ba_gpu_index),
         "--Mapper.min_num_matches", str(m.min_num_matches),
