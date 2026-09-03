@@ -56,6 +56,13 @@ class RigConfig:
     height: int = 2133
     ref_view: int = 0
     camera_model: str = "PINHOLE"
+    #: Tie the directions into one rig, so a frame is a single 6-DOF pose.
+    #: Off, and it should stay off: measured on 150 frames of 1-mid-1 with
+    #: identical matches, coupling collapsed runs of 40+ consecutive frames
+    #: onto one point (residual against RealityScan 8.81 index-steps, step p90
+    #: 17.84) where independent rigs tracked it to 2.55 with step p90 1.61,
+    #: 2.4x the points and a lower reprojection error. See RigSpec.to_config.
+    coupled: bool = False
     #: Import these from the extractor GUI's settings file.
     settings_path: str = ""
     settings_set_name: str = ""
@@ -120,13 +127,27 @@ class ExtraPairsConfig:
     #: Ring separation to pair up to: 1 is the 45 deg neighbour, 2 the 90 deg
     #: one. A 100 deg field does not reach 135 deg, so past 2 it is pure cost.
     max_view_sep: int = 2
+    #: Fill in the frame offsets the quadratic sequential matcher never makes.
+    #: With overlap 5 and quadratic on it pairs offsets 1, 2, 4, 8, 16 and
+    #: nothing between - so 3, 5, 6, 7 are simply absent. On 1-mid-1 offset 1
+    #: carried 51% of every inlier in the reconstruction, offset 2 carried 25%
+    #: and offset 4 carried 13%, so the gaps in between are not noise, they are
+    #: most of what a dense window would add. RealityScan preselects candidates
+    #: across a whole set instead of walking a chain, and over the same frames
+    #: its trajectory is flat (p10..p90 = 0.61..1.11 of median step) where a
+    #: chain-matched COLMAP model bends by a factor of 20. 0 = do not fill.
+    dense_window: int = 0
+    #: Views to pair for the dense window. 1 keeps it to the same camera and
+    #: its 45 deg neighbours; the cost grows fast past that.
+    dense_max_view_sep: int = 1
 
 
 @dataclass
 class MapperConfig:
-    #: Hold the rig rigid. The whole point of declaring it is that the views of
-    #: one frame have no baseline to solve from - measured at 0.54% of the
-    #: frame-to-frame step on 1-mid-1.
+    #: Only meaningful with rig.coupled on. Leave it off there: turning it on
+    #: crashes COLMAP 4.2.0 (0xC0000409) 62 frames into 1-mid-1, so a coupled
+    #: rig can be held rigid, which collapses the walk, or refined, which
+    #: aborts. Neither is a usable setting - use independent rigs instead.
     refine_sensor_from_rig: bool = False
     refine_focal_length: bool = False
     refine_principal_point: bool = False

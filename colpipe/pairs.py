@@ -36,11 +36,12 @@ class PairPlan:
     path: Path
     loop: int = 0
     same_frame: int = 0
+    dense: int = 0
     messages: list[str] = field(default_factory=list)
 
     @property
     def total(self) -> int:
-        return self.loop + self.same_frame
+        return self.loop + self.same_frame + self.dense
 
 
 def read_layout(database: Path) -> dict[str, dict[int, str]]:
@@ -67,7 +68,9 @@ def _sep(a: int, b: int, n: int) -> int:
 
 def write_pairs(database: Path, out_path: Path, *, loop_window: int = 40,
                 same_frame: bool = True, max_view_sep: int = 2,
-                loop_max_view_sep: int = 0) -> PairPlan:
+                loop_max_view_sep: int = 0, dense_window: int = 0,
+                dense_max_view_sep: int = 1,
+                dense_skip_offsets: "set[int] | tuple[int, ...]" = ()) -> PairPlan:
     """Write the pair list, and say what went into it.
 
     ``loop_window`` pairs the last N frames against the first N. ``max_view_sep``
@@ -138,6 +141,29 @@ def write_pairs(database: Path, out_path: Path, *, loop_window: int = 40,
             f"inside one frame: view separation up to {max_view_sep} "
             f"({45 * max_view_sep} deg on an 8-view ring), "
             f"{plan.same_frame} pairs")
+
+    # ---- the offsets the quadratic matcher never generated -------------
+    if dense_window > 0:
+        skip = set(dense_skip_offsets)
+        added = sorted(d for d in range(1, dense_window + 1) if d not in skip)
+        for f in frames:
+            for d in added:
+                g = f + d
+                for ia, va in enumerate(views):
+                    na = layout[va].get(f)
+                    if not na:
+                        continue
+                    for ib, vb in enumerate(views):
+                        if _sep(ia, ib, nv) > dense_max_view_sep:
+                            continue
+                        nb = layout[vb].get(g)
+                        if nb:
+                            lines.append(f"{na} {nb}")
+                            plan.dense += 1
+        plan.messages.append(
+            f"dense local window: offsets {added} (skipping "
+            f"{sorted(skip) or 'nothing'} as already matched), view "
+            f"separation up to {dense_max_view_sep}, {plan.dense} pairs")
 
     plan.path.parent.mkdir(parents=True, exist_ok=True)
     plan.path.write_text("\n".join(lines) + ("\n" if lines else ""),

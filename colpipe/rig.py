@@ -119,12 +119,54 @@ class RigSpec:
     height: int
     ref_index: int = 0
     camera_model: str = "PINHOLE"
+    #: Bind the directions into one rig, so every frame is a single 6-DOF pose.
+    #: Measured on 1-mid-1 and left off because of it - see to_config.
+    coupled: bool = False
 
     def sensor_folder(self, d: Direction) -> str:
         return d.sensor_name
 
     def to_config(self, image_subdir: str = "") -> list[dict]:
-        """The list COLMAP's rig_configurator expects."""
+        """The list COLMAP's rig_configurator expects.
+
+        With ``coupled`` off this is one single-camera rig per direction: the
+        directions still get their own camera model, and frames still group by
+        file name, but nothing ties the eight poses of a frame together.
+
+        Coupling them is the obvious thing to do and it is wrong here. On 150
+        frames of 1-mid-1, with identical features and matches, the only
+        difference being the rig:
+
+            against RealityScan   coupled   independent   (RealityScan)
+            residual median          8.81          2.55             0
+            step p10                 0.12          0.62          0.61
+            step p90                17.84          1.61          1.13
+            breaks over 3x             21             5             0
+            3D points             110,524       266,793             -
+            reprojection           0.5494        0.4291        0.6210
+
+        Coupled, runs of 40+ consecutive frames land on a single point: frames
+        26-56 all sat within 0.2 of each other while RealityScan walked 20
+        index-steps.
+
+        Why is not established. The obvious suspect - a wrong rig - was
+        checked and cleared: measured against RealityScan's own solve of these
+        images the ring is 45.00 degrees to within 0.014, so the geometry being
+        imposed is right (see _smoke/verify_rig_rotations.py). Focal length
+        agrees to 0.01%, the principal point is at centre, there is no
+        distortion, and the structure is not at infinity (median point depth is
+        8 frame-steps). What is left is the coupling itself, and the numbers
+        above are the reason for the default, not a theory about it.
+
+        Letting it relax instead (ba_refine_sensor_from_rig 1) is not a way
+        out: COLMAP 4.2.0 crashes, 0xC0000409, 62 frames into the same data.
+        So a coupled rig here can be held rigid, which collapses the walk, or
+        refined, which aborts.
+
+        Independent, the eight views of a frame come out 4.9e-3 apart - about
+        1% of a frame step - so the shared optical centre is recovered rather
+        than imposed, which is all the constraint was worth.
+        """
         params = pinhole_params(self.fov, self.width, self.height)
         cams = []
         for d in self.directions:
@@ -144,7 +186,18 @@ class RigSpec:
                 # every view of a frame shares the optical centre
                 entry["cam_from_rig_translation"] = [0.0, 0.0, 0.0]
             cams.append(entry)
-        return [{"cameras": cams}]
+        if self.coupled:
+            return [{"cameras": cams}]
+        # one rig each: drop the relative pose and make every sensor its own
+        # reference, which is what "no rig" means to rig_configurator
+        out = []
+        for e in cams:
+            e = dict(e)
+            e.pop("cam_from_rig_rotation", None)
+            e.pop("cam_from_rig_translation", None)
+            e["ref_sensor"] = True
+            out.append({"cameras": [e]})
+        return out
 
     def write(self, path: Path, image_subdir: str = "") -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)

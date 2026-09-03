@@ -220,10 +220,15 @@ class PipelineRunner:
         spec = RigSpec(directions=dirs, fov=self.cfg.rig.fov,
                        width=self.cfg.rig.width, height=self.cfg.rig.height,
                        ref_index=self.cfg.rig.ref_view,
-                       camera_model=self.cfg.rig.camera_model)
+                       camera_model=self.cfg.rig.camera_model,
+                       coupled=self.cfg.rig.coupled)
         spec.write(p.rig_config)
         self.emit("log", {"line": f"[colpipe] rig config written with "
-                                  f"{len(dirs)} sensors"})
+                                  f"{len(dirs)} sensors, "
+                                  + ("one coupled rig - measured to collapse "
+                                     "runs of frames onto one point"
+                                     if self.cfg.rig.coupled
+                                     else "one rig each (not coupled)")})
 
     def _stage_features(self, res: StageResult, p: cli.Paths) -> None:
         if self.cfg.run.skip_existing and p.database.is_file() \
@@ -265,14 +270,24 @@ class PipelineRunner:
             res.message = "extra pairs not requested"
             return
         t0 = time.time()
+        # do not pay to re-match what the sequential pass already did
+        m = self.cfg.match
+        if m.method == "sequential":
+            covered = {2 ** i for i in range(m.overlap)} if m.quadratic_overlap \
+                else set(range(1, m.overlap + 1))
+        else:
+            covered = set()
         plan = write_pairs(
             p.database, p.pair_list, loop_window=c.loop_window,
             same_frame=c.same_frame, max_view_sep=c.max_view_sep,
-            loop_max_view_sep=c.loop_max_view_sep)
+            loop_max_view_sep=c.loop_max_view_sep,
+            dense_window=c.dense_window,
+            dense_max_view_sep=c.dense_max_view_sep,
+            dense_skip_offsets=covered)
         for m in plan.messages:
             self.emit("log", {"line": f"[colpipe] {m}"})
         res.detail = {"loop": plan.loop, "same_frame": plan.same_frame,
-                      "total": plan.total}
+                      "dense": plan.dense, "total": plan.total}
         res.seconds = time.time() - t0
         if plan.total == 0:
             res.status = "skipped"
@@ -281,7 +296,7 @@ class PipelineRunner:
         self._spawn(cli.matches_importer(self.cfg, p), p.logs / "pairs.log", res)
         if res.status == "ok":
             res.message = (f"{plan.loop} loop-seam + {plan.same_frame} "
-                           f"same-frame pairs matched")
+                           f"same-frame + {plan.dense} dense pairs matched")
 
     def _stage_map(self, res: StageResult, p: cli.Paths) -> None:
         models = [d for d in p.sparse.iterdir() if d.is_dir()] \

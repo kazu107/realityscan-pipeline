@@ -181,6 +181,16 @@ class App(ttk.Frame):
             ("Reference view", "rig.ref_view", tk.IntVar, "sensor with identity pose"),
         ), start=5):
             _row(g2, r, label, ttk.Entry(g2, textvariable=self.V(key, kind), width=12), hint)
+        ttk.Checkbutton(g2, text="tie the directions into one rig",
+                        variable=self.V("rig.coupled", tk.BooleanVar, False)
+                        ).grid(row=9, column=1, sticky="w", **PAD)
+        ttk.Label(g2, text="leave OFF. Measured on 150 frames of 1-mid-1 with the\n"
+                           "same matches: coupled, runs of 40+ frames collapse onto\n"
+                           "one point (residual 8.81 index-steps against RealityScan,\n"
+                           "step p90 17.84); independent, 2.55 and 1.61, with 2.4x the\n"
+                           "points. Refining the rig instead crashes COLMAP 4.2.0.\n"
+                           "Independent still gives each direction its own camera",
+                  foreground="#777").grid(row=9, column=2, sticky="w", **PAD)
 
         bar = ttk.Frame(f)
         bar.pack(fill="x", padx=6, pady=4)
@@ -281,6 +291,17 @@ class App(ttk.Frame):
                        width=12),
              "1 = the 45deg neighbour, 2 = also 90deg. A 100deg field\n"
              "does not reach 135deg, so past 2 is pure cost")
+        _row(g3, 5, "Dense window",
+             ttk.Entry(g3, textvariable=self.V("pairs.dense_window", tk.IntVar),
+                       width=12),
+             "fills the frame offsets quadratic overlap never makes -\n"
+             "with overlap 5 it pairs 1,2,4,8,16 and nothing between.\n"
+             "Offsets 1,2,4 carried 51/25/13% of every inlier on\n"
+             "1-mid-1, so the gaps are most of what is missing. 0 = off")
+        _row(g3, 6, "Dense view sep",
+             ttk.Entry(g3, textvariable=self.V("pairs.dense_max_view_sep",
+                                               tk.IntVar), width=12),
+             "1 = same camera and its 45deg neighbours")
         return f
 
     # -- tab 3 -------------------------------------------------------------
