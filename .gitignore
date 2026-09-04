@@ -23,3 +23,6 @@ _smoke/smoke.log
 
 # COLMAP workspaces: databases, models and the hard-linked image trees
 /out_colmap/
+
+# COLMAP vocabulary trees, downloaded from demuc.de
+/vocab/

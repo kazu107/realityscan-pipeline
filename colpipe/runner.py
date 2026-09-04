@@ -202,7 +202,8 @@ class PipelineRunner:
             mask_pattern=d.mask_pattern if d.use_masks else "",
             mask_dir=d.mask_dir,
             mask_out=p.masks if d.use_masks else None,
-            fill_missing_masks=d.fill_missing_masks)
+            fill_missing_masks=d.fill_missing_masks,
+            folder_prefix=d.folder_prefix)
         res.seconds = time.time() - t0
         res.detail = {"frames": out.frames, "views": out.views,
                       "linked": out.linked, "copied": out.copied,
@@ -223,7 +224,8 @@ class PipelineRunner:
                        width=self.cfg.rig.width, height=self.cfg.rig.height,
                        ref_index=self.cfg.rig.ref_view,
                        camera_model=self.cfg.rig.camera_model,
-                       coupled=self.cfg.rig.coupled)
+                       coupled=self.cfg.rig.coupled,
+                       folder_prefix=self.cfg.dataset.folder_prefix)
         spec.write(p.rig_config)
         self.emit("log", {"line": f"[colpipe] rig config written with "
                                   f"{len(dirs)} sensors, "

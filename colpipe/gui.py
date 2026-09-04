@@ -151,6 +151,12 @@ class App(ttk.Frame):
                           "partly-masked set silently loses those images.",
                   foreground="#777").grid(row=7, column=1, columnspan=3,
                                           sticky="w", **PAD)
+        _row(g, 10, "Folder prefix",
+             ttk.Entry(g, textvariable=self.V("dataset.folder_prefix"),
+                       width=12),
+             "prepended to the sensor folders, so a second capture can share\n"
+             "one database without its cam00 merging into the first's.\n"
+             "Needed to combine 1-mid-1 (8 directions) with 1-low (10)")
         _row(g, 8, "Mask name",
              ttk.Entry(g, textvariable=self.V("dataset.mask_pattern"), width=24),
              "{name} = image file name")

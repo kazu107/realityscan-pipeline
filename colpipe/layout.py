@@ -69,8 +69,14 @@ def build(image_dir: Path, out_dir: Path, views: list[int] | None = None,
           require_all_views: bool = True,
           mask_pattern: str = "", mask_dir: str = "",
           mask_out: Path | None = None,
-          fill_missing_masks: bool = True) -> LayoutResult:
-    """Populate ``out_dir/camNN/<name>_<frame>.jpg`` from a flat folder."""
+          fill_missing_masks: bool = True,
+          folder_prefix: str = "") -> LayoutResult:
+    """Populate ``out_dir/<prefix>camNN/<name>_<frame>.jpg`` from a flat folder.
+
+    ``folder_prefix`` keeps two captures apart in one workspace. Folder names
+    are what COLMAP turns into cameras, so sets with different direction rings
+    - 1-mid's eight against 1-low's ten - must not land in the same cam00.
+    """
     image_dir, out_dir = Path(image_dir), Path(out_dir)
     frames = scan_flat(image_dir, pattern)
     res = LayoutResult()
@@ -86,7 +92,8 @@ def build(image_dir: Path, out_dir: Path, views: list[int] | None = None,
             if f >= frame_from and (frame_to < 0 or f <= frame_to)
             and (f - frame_from) % max(1, frame_step) == 0]
     for v in want:
-        (out_dir / f"cam{v:02d}").mkdir(parents=True, exist_ok=True)
+        (out_dir / f"{folder_prefix}cam{v:02d}").mkdir(
+            parents=True, exist_ok=True)
 
     rx = re.compile(pattern)
     for f in keep:
@@ -101,14 +108,15 @@ def build(image_dir: Path, out_dir: Path, views: list[int] | None = None,
                 continue
             m = rx.match(src.stem)
             stem = f"{m.group('prefix')}_{m.group('frame')}"
-            dst = out_dir / f"cam{v:02d}" / f"{stem}{src.suffix}"
+            dst = out_dir / f"{folder_prefix}cam{v:02d}" / f"{stem}{src.suffix}"
             _place(src, dst, res)
             if mask_pattern and mask_out is not None:
                 msrc = _mask_for(src, mask_pattern, mask_dir)
                 # COLMAP looks for the mask at the same sub-path below
                 # mask_path as the image has below image_path, named
                 # <image file name>.png - not beside the image
-                mdst = mask_out / f"cam{v:02d}" / f"{stem}{src.suffix}.png"
+                mdst = mask_out / f"{folder_prefix}cam{v:02d}" \
+                    / f"{stem}{src.suffix}.png"
                 if msrc and msrc.is_file():
                     _place(msrc, mdst, res)
                     res.masked += 1

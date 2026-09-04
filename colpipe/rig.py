@@ -122,6 +122,9 @@ class RigSpec:
     #: Bind the directions into one rig, so every frame is a single 6-DOF pose.
     #: Measured on 1-mid-1 and left off because of it - see to_config.
     coupled: bool = False
+    #: Prepended to every sensor folder, to keep two captures apart in one
+    #: workspace. Must match the layout's folder_prefix.
+    folder_prefix: str = ""
 
     def sensor_folder(self, d: Direction) -> str:
         return d.sensor_name
@@ -170,8 +173,8 @@ class RigSpec:
         params = pinhole_params(self.fov, self.width, self.height)
         cams = []
         for d in self.directions:
-            prefix = f"{image_subdir}{d.sensor_name}/" if image_subdir \
-                else f"{d.sensor_name}/"
+            name = f"{self.folder_prefix}{d.sensor_name}"
+            prefix = f"{image_subdir}{name}/" if image_subdir else f"{name}/"
             entry: dict = {
                 "image_prefix": prefix,
                 "camera_model_name": self.camera_model,

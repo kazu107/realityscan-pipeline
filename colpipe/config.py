@@ -39,6 +39,11 @@ class DatasetConfig:
     fill_missing_masks: bool = True
     mask_pattern: str = "{name}.mask.png"
     mask_dir: str = ""
+    #: Prepended to the sensor folders, so a second capture can be laid out
+    #: beside the first without their cam00 becoming one camera. Combining
+    #: 1-mid-1 (8 directions) with 1-low (10) needs this; leave it empty for
+    #: the set whose names are already in a database worth keeping.
+    folder_prefix: str = ""
 
 
 @dataclass
