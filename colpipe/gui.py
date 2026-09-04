@@ -435,23 +435,175 @@ class App(ttk.Frame):
     # -- tab 5 -------------------------------------------------------------
     def _tab_view(self, parent):
         f = ttk.Frame(parent)
-        bar = ttk.Frame(f)
-        bar.pack(fill="x", padx=6, pady=4)
-        ttk.Button(bar, text="Load model", command=self.on_load_model).pack(side="left")
-        ttk.Label(bar, text="Colour by").pack(side="left", padx=(16, 4))
-        self._combo_str(bar, "_view_colour", ["frame", "point colour", "sensor"],
-                        14).pack(side="left")
-        ttk.Label(bar, text="Point size").pack(side="left", padx=(16, 4))
-        ttk.Entry(bar, textvariable=self.V("_view_psize", tk.DoubleVar, 0.4),
-                  width=6).pack(side="left")
-        ttk.Button(bar, text="Redraw", command=self.on_draw).pack(side="left", padx=8)
-        self.lbl_model = ttk.Label(bar, text="no model loaded")
-        self.lbl_model.pack(side="left", padx=10)
 
-        self.view_holder = ttk.Frame(f)
-        self.view_holder.pack(fill="both", expand=True, padx=6, pady=4)
-        self._canvas = None
+        bar = ttk.Frame(f)
+        bar.pack(fill="x", padx=6, pady=(4, 0))
+        ttk.Button(bar, text="Load model",
+                   command=self.on_load_model).pack(side="left")
+        for text, cmd in (("Fit", lambda: self._view_preset("fit")),
+                          ("Top", lambda: self._view_preset("top")),
+                          ("Front", lambda: self._view_preset("front")),
+                          ("Side", lambda: self._view_preset("side"))):
+            ttk.Button(bar, text=text, width=6,
+                       command=cmd).pack(side="left", padx=(6, 0))
+        self.lbl_model = ttk.Label(bar, text="no model loaded")
+        self.lbl_model.pack(side="left", padx=12)
+
+        bar2 = ttk.Frame(f)
+        bar2.pack(fill="x", padx=6, pady=(2, 0))
+        for text, key, default in (("points", "_v_points", True),
+                                   ("cameras", "_v_cams", True),
+                                   ("path", "_v_path", True),
+                                   ("grid", "_v_grid", True),
+                                   ("colour", "_v_colour", True),
+                                   ("on top", "_v_ontop", True)):
+            ttk.Checkbutton(bar2, text=text,
+                            variable=self.V(key, tk.BooleanVar, default),
+                            command=self.on_draw).pack(side="left", padx=(0, 8))
+        ttk.Label(bar2, text="cameras by").pack(side="left", padx=(8, 3))
+        cb = self._combo_str(bar2, "_v_camcol", ["frame", "sensor"], 8)
+        cb.pack(side="left")
+        cb.bind("<<ComboboxSelected>>", lambda _e: self.on_draw())
+        for label, key, default, width in (("size", "_v_psize", 1, 4),
+                                           ("bright", "_v_bright", 1.8, 5),
+                                           ("frusta", "_v_frusta", 400, 6)):
+            ttk.Label(bar2, text=label).pack(side="left", padx=(10, 3))
+            kind = tk.DoubleVar if isinstance(default, float) else tk.IntVar
+            e = ttk.Entry(bar2, textvariable=self.V(key, kind, default),
+                          width=width)
+            e.pack(side="left")
+            e.bind("<Return>", lambda _e: self.on_draw())
+        ttk.Button(bar2, text="Redraw", width=8,
+                   command=self.on_draw).pack(side="left", padx=8)
+
+        self.view_canvas = tk.Canvas(f, bg="#16181c", highlightthickness=0,
+                                     cursor="fleur")
+        self.view_canvas.pack(fill="both", expand=True, padx=6, pady=4)
+        self.lbl_view = ttk.Label(
+            f, text="drag to turn, right-drag or shift-drag to pan, "
+                    "wheel to zoom", foreground="#777")
+        self.lbl_view.pack(fill="x", padx=8, pady=(0, 4))
+
+        c = self.view_canvas
+        c.bind("<ButtonPress-1>", lambda e: self._view_down(e, "orbit"))
+        c.bind("<B1-Motion>", self._view_drag)
+        c.bind("<ButtonRelease-1>", self._view_up)
+        c.bind("<Shift-ButtonPress-1>", lambda e: self._view_down(e, "pan"))
+        c.bind("<Shift-B1-Motion>", self._view_drag)
+        c.bind("<ButtonPress-3>", lambda e: self._view_down(e, "pan"))
+        c.bind("<B3-Motion>", self._view_drag)
+        c.bind("<ButtonRelease-3>", self._view_up)
+        c.bind("<MouseWheel>", self._view_wheel)
+        c.bind("<Button-4>", lambda e: self._view_wheel(e, 1))
+        c.bind("<Button-5>", lambda e: self._view_wheel(e, -1))
+        c.bind("<Configure>", self._view_resize)
+
+        self._scene = None
+        self._turn = None
+        self._photo = None
+        self._drag = None
+        self._resize_job = None
         return f
+
+    # ---- viewer ----------------------------------------------------------
+    def _view_options(self):
+        from .viewer import RenderOptions
+        g = lambda k, kind, d: self.V(k, kind, d).get()          # noqa: E731
+        return RenderOptions(
+            show_points=bool(g("_v_points", tk.BooleanVar, True)),
+            show_cameras=bool(g("_v_cams", tk.BooleanVar, True)),
+            show_trajectory=bool(g("_v_path", tk.BooleanVar, True)),
+            show_grid=bool(g("_v_grid", tk.BooleanVar, True)),
+            colour_points=bool(g("_v_colour", tk.BooleanVar, True)),
+            cameras_on_top=bool(g("_v_ontop", tk.BooleanVar, True)),
+            brightness=float(g("_v_bright", tk.DoubleVar, 1.8)),
+            camera_colour=str(self.V("_v_camcol").get() or "frame"),
+            point_size=max(1, int(g("_v_psize", tk.IntVar, 1))),
+            max_frusta=max(0, int(g("_v_frusta", tk.IntVar, 400))))
+
+    def _view_preset(self, which: str):
+        from .viewer import fit
+        if self._scene is None or self._turn is None:
+            return
+        if which == "fit":
+            fit(self._scene, self._turn)
+        elif which == "top":
+            self._turn.elevation = 89.0
+        elif which == "front":
+            self._turn.azimuth, self._turn.elevation = 0.0, 8.0
+        elif which == "side":
+            self._turn.azimuth, self._turn.elevation = 90.0, 8.0
+        self.on_draw()
+
+    def _view_down(self, event, mode):
+        self._drag = (mode, event.x, event.y)
+        self.view_canvas.config(cursor="tcross" if mode == "pan" else "fleur")
+
+    def _view_drag(self, event):
+        if not self._drag or self._turn is None:
+            return
+        mode, x, y = self._drag
+        dx, dy = event.x - x, event.y - y
+        if mode == "orbit":
+            self._turn.orbit(dx, dy)
+        else:
+            self._turn.pan(dx, dy, self.view_canvas.winfo_height())
+        self._drag = (mode, event.x, event.y)
+        self.on_draw(budget=120_000)
+
+    def _view_up(self, _event):
+        self._drag = None
+        self.view_canvas.config(cursor="fleur")
+        self.on_draw()
+
+    def _view_wheel(self, event, direction=None):
+        if self._turn is None:
+            return
+        d = direction if direction is not None else (event.delta / 120.0)
+        self._turn.dolly(d)
+        self.on_draw(budget=200_000)
+
+    def _view_resize(self, _event):
+        if self._resize_job:
+            self.after_cancel(self._resize_job)
+        self._resize_job = self.after(120, self.on_draw)
+
+    def on_draw(self, budget: int | None = None):
+        self._resize_job = None
+        if self._scene is None or self._turn is None:
+            return
+        import time
+
+        from .viewer import render
+        w = max(self.view_canvas.winfo_width(), 32)
+        h = max(self.view_canvas.winfo_height(), 32)
+        t0 = time.time()
+        img = render(self._scene, self._turn, w, h, self._view_options(),
+                     point_budget=budget)
+        self._show(img)
+        if budget is None:
+            self.lbl_view.config(
+                text=f"{len(self._scene.points):,} points, "
+                     f"{len(self._scene.cam_centres):,} cameras, "
+                     f"{len(self._scene.trajectory):,} frames   |   "
+                     f"azimuth {self._turn.azimuth:.0f} deg, "
+                     f"elevation {self._turn.elevation:.0f} deg   |   "
+                     f"{1000*(time.time()-t0):.0f} ms   |   "
+                     f"drag to turn, right-drag or shift-drag to pan, "
+                     f"wheel to zoom")
+
+    def _show(self, img):
+        """Put an (H, W, 3) uint8 array on the canvas."""
+        h, w = img.shape[:2]
+        try:
+            from PIL import Image, ImageTk
+            self._photo = ImageTk.PhotoImage(Image.fromarray(img))
+        except Exception:                                     # noqa: BLE001
+            # Tk reads a raw PPM straight from bytes, so PIL is optional here
+            header = f"P6 {w} {h} 255 ".encode()
+            self._photo = tk.PhotoImage(data=header + img.tobytes())
+        self.view_canvas.delete("all")
+        self.view_canvas.create_image(0, 0, anchor="nw", image=self._photo)
 
     # ---- helpers ---------------------------------------------------------
     def _combo_str(self, parent, key, values, width=12):
@@ -565,68 +717,13 @@ class App(ttk.Frame):
         except Exception as e:                                # noqa: BLE001
             messagebox.showerror("Model", str(e))
             return
+        from .viewer import Turntable, build_scene, fit
+        self._scene = build_scene(self.model)
+        self._turn = Turntable(target=self._scene.centre.copy(), distance=1.0,
+                               up=self._scene.up)
+        fit(self._scene, self._turn)
         self.lbl_model.config(text=self.model.summary())
         self.on_draw()
-
-    def on_draw(self):
-        if self.model is None:
-            return
-        import numpy as np
-        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-        from matplotlib.figure import Figure
-        from .model import frames_from_names
-
-        pts, cols = self.model.points, self.model.colors
-        centres = self.model.centres
-        if not len(centres):
-            return
-        # Draw the plane the walk lies in, not whichever pair of axes the
-        # solver happened to use - a side view makes a good result look flat.
-        c = centres - centres.mean(0)
-        _, _, vt = np.linalg.svd(c, full_matrices=False)
-        basis = vt[:2]
-        origin = centres.mean(0)
-
-        fig = Figure(figsize=(9, 7), dpi=100)
-        ax = fig.add_subplot(111)
-        if len(pts):
-            step = max(1, len(pts) // 400_000)
-            q = (pts[::step] - origin) @ basis.T
-            lim = np.percentile(np.abs((centres - origin) @ basis.T), 99.5) * 2.0
-            keep = (np.abs(q) < lim).all(1)
-            mode = self.V("_view_colour").get()
-            colour = (cols[::step][keep] / 255.0) if mode == "point colour" else "0.75"
-            ax.scatter(q[keep, 0], q[keep, 1],
-                       s=float(self.V("_view_psize", tk.DoubleVar, 0.4).get()),
-                       c=colour, marker=".", linewidths=0, alpha=0.5)
-
-        per = frames_from_names(self.model)
-        mode = self.V("_view_colour").get()
-        if mode == "sensor":
-            for name in sorted(per):
-                pc = np.array([per[name][k] for k in sorted(per[name])])
-                pp = (pc - origin) @ basis.T
-                ax.plot(pp[:, 0], pp[:, 1], lw=0.8, label=name)
-            ax.legend(fontsize=7, ncol=2)
-        else:
-            ref = sorted(per)[0] if per else None
-            if ref:
-                keys = sorted(per[ref])
-                pc = np.array([per[ref][k] for k in keys])
-                pp = (pc - origin) @ basis.T
-                sc = ax.scatter(pp[:, 0], pp[:, 1], s=6, c=keys, cmap="turbo",
-                                zorder=3)
-                ax.plot(pp[:, 0], pp[:, 1], lw=0.5, color="k", alpha=0.3, zorder=2)
-                fig.colorbar(sc, ax=ax, label="frame", fraction=0.03, pad=0.01)
-        ax.set_aspect("equal")
-        ax.set_title(self.model.summary())
-
-        for w in self.view_holder.winfo_children():
-            w.destroy()
-        canvas = FigureCanvasTkAgg(fig, master=self.view_holder)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-        self._canvas = canvas
 
     # ---- events ----------------------------------------------------------
     def _log(self, line: str):
