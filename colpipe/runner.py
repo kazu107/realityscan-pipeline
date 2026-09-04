@@ -25,6 +25,7 @@ from typing import Callable
 from . import cli
 from .config import ColmapPipelineConfig
 from .clean import clean_model
+from .flatten import flatten
 from .layout import build as build_layout
 from .pairs import write_pairs
 from .rig import Direction, RigSpec, from_extractor_settings, ring
@@ -349,6 +350,17 @@ class PipelineRunner:
         if self.cfg.export.export_ply and res.status != "failed":
             self._spawn(cli.model_converter(self.cfg, p, best, p.ply, "PLY"),
                         p.logs / "export_ply.log", res)
+        if self.cfg.export.flat_dataset_dir and res.status != "failed":
+            d = self.cfg.dataset
+            fr = flatten(
+                best, Path(self.cfg.export.flat_dataset_dir), p.images,
+                source_dir=Path(d.image_dir) if d.image_dir else None,
+                mask_pattern=d.mask_pattern, mask_dir=d.mask_dir,
+                write_masks=d.use_masks,
+                per_image_cameras=self.cfg.export.flat_per_image_cameras)
+            for msg in fr.messages:
+                self.emit("log", {"line": f"[colpipe] {msg}"})
+            res.detail["flat_dataset"] = self.cfg.export.flat_dataset_dir
         if res.status != "failed":
             res.status = "ok"
             res.message = f"exported from {best.name} of {len(models)} model(s)"

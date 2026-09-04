@@ -184,6 +184,15 @@ class ExportConfig:
     #: 53 views of 6,213, and it took the trajectory from eleven breaks over 3x
     #: the median step to none - see colpipe/clean.py.
     drop_stray_views: float = 1.0
+    #: Also write a flat COLMAP dataset here - images/NNNNN.jpg, masks/NNNNN.jpg,
+    #: sparse/0 - which is the layout K:\data\col is in and what the gaussian
+    #: splatting side reads. Empty = do not write one.
+    flat_dataset_dir: str = ""
+    #: One camera per image in that dataset rather than one per direction.
+    #: Sharing is correct for this rig and every COLMAP reader handles it;
+    #: K:\data\col has per-image cameras because RealityScan undistorted each
+    #: image separately, so turn this on for a reader that assumes that.
+    flat_per_image_cameras: bool = False
 
 
 @dataclass

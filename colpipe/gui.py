@@ -388,6 +388,22 @@ class App(ttk.Frame):
              "before it is dropped; 0 keeps everything. On 1-mid-1 this\n"
              "removed 53 views of 6,213 and took the trajectory from\n"
              "eleven breaks over 3x the median step to none")
+        _row(g, 3, "Flat dataset",
+             ttk.Entry(g, textvariable=self.V("export.flat_dataset_dir"),
+                       width=60), "", 3)
+        ttk.Button(g, text="...", width=3,
+                   command=lambda: self._pick_dir("export.flat_dataset_dir")
+                   ).grid(row=3, column=2, sticky="w", **PAD)
+        ttk.Checkbutton(g, text="one camera per image in it",
+                        variable=self.V("export.flat_per_image_cameras",
+                                        tk.BooleanVar, False)
+                        ).grid(row=4, column=1, sticky="w", **PAD)
+        ttk.Label(g, text="also writes images/NNNNN.jpg, masks/NNNNN.jpg and\n"
+                          "sparse/0 there - the layout K:/data/col is in.\n"
+                          "Sharing a camera per direction is correct and any\n"
+                          "COLMAP reader takes it; tick the box only for a\n"
+                          "reader that expects one camera per image",
+                  foreground="#777").grid(row=4, column=2, sticky="w", **PAD)
         _row(g, 2, "Hang timeout (min)",
              ttk.Entry(g, textvariable=self.V("run.timeout_min", tk.IntVar), width=12),
              "0 = never. Re-arms while the process keeps using CPU,\n"
