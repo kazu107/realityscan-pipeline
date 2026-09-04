@@ -174,9 +174,16 @@ class MapperConfig:
 @dataclass
 class ExportConfig:
     work_root: str = ""
-    #: also write the sparse model as text, which is what other tools read
-    export_text: bool = True
+    #: also write the sparse model as text, which is what other tools read.
+    #: Off by default: images.txt for the 904-frame 1-mid-1 model came out at
+    #: 7.5 GB, because it carries every keypoint of every image.
+    export_text: bool = False
     export_ply: bool = True
+    #: Drop views sitting further than this many index-steps from the rest of
+    #: their frame, before exporting. 0 = keep everything. On 1-mid-1 this was
+    #: 53 views of 6,213, and it took the trajectory from eleven breaks over 3x
+    #: the median step to none - see colpipe/clean.py.
+    drop_stray_views: float = 1.0
 
 
 @dataclass

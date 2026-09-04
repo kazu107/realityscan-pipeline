@@ -22,6 +22,7 @@ class Paths:
     rig_config: Path
     pair_list: Path
     sparse: Path
+    sparse_clean: Path
     sparse_text: Path
     ply: Path
     masks: Path
@@ -42,6 +43,7 @@ def paths_for(cfg: ColmapPipelineConfig) -> Paths:
         rig_config=root / "rig_config.json",
         pair_list=root / "extra_pairs.txt",
         sparse=root / "sparse",
+        sparse_clean=root / "sparse_clean",
         sparse_text=root / "sparse_text",
         ply=root / "sparse.ply",
         masks=root / "masks",

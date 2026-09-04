@@ -24,6 +24,7 @@ from typing import Callable
 
 from . import cli
 from .config import ColmapPipelineConfig
+from .clean import clean_model
 from .layout import build as build_layout
 from .pairs import write_pairs
 from .rig import Direction, RigSpec, from_extractor_settings, ring
@@ -330,6 +331,17 @@ class PipelineRunner:
         best = max(models, key=lambda d: sum(f.stat().st_size
                                              for f in d.iterdir() if f.is_file()))
         res.detail["model"] = str(best)
+        if self.cfg.export.drop_stray_views > 0:
+            c = clean_model(self.cfg.run.exe, best, p.sparse_clean,
+                            p.root / "stray_views.txt",
+                            self.cfg.export.drop_stray_views)
+            for msg in c.messages:
+                self.emit("log", {"line": f"[colpipe] {msg}"})
+            res.detail["dropped_views"] = len(c.dropped)
+            res.detail["frames_touched"] = c.frames_touched
+            if c.dropped and p.sparse_clean.is_dir():
+                best = p.sparse_clean
+                res.detail["model"] = str(best)
         if self.cfg.export.export_text:
             p.sparse_text.mkdir(parents=True, exist_ok=True)
             self._spawn(cli.model_converter(self.cfg, p, best, p.sparse_text, "TXT"),

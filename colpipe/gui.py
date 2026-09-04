@@ -381,6 +381,13 @@ class App(ttk.Frame):
                                           columnspan=len(PipelineRunner.STAGES),
                                           sticky="w", **PAD)
 
+        _row(g, 1, "Drop stray views",
+             ttk.Entry(g, textvariable=self.V("export.drop_stray_views",
+                                              tk.DoubleVar), width=12),
+             "index-steps a view may sit from the rest of its frame\n"
+             "before it is dropped; 0 keeps everything. On 1-mid-1 this\n"
+             "removed 53 views of 6,213 and took the trajectory from\n"
+             "eleven breaks over 3x the median step to none")
         _row(g, 2, "Hang timeout (min)",
              ttk.Entry(g, textvariable=self.V("run.timeout_min", tk.IntVar), width=12),
              "0 = never. Re-arms while the process keeps using CPU,\n"
