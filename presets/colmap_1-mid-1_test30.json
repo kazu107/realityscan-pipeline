@@ -8,8 +8,10 @@
     "frame_step": 1,
     "require_all_views": true,
     "use_masks": false,
+    "fill_missing_masks": true,
     "mask_pattern": "{name}.mask.png",
-    "mask_dir": ""
+    "mask_dir": "",
+    "folder_prefix": ""
   },
   "rig": {
     "directions": "",
@@ -21,16 +23,27 @@
     "height": 2133,
     "ref_view": 0,
     "camera_model": "PINHOLE",
+    "coupled": false,
     "settings_path": "",
     "settings_set_name": ""
   },
   "feature": {
+    "type": "SIFT",
     "use_gpu": true,
     "gpu_index": "-1",
     "max_image_size": 3200,
     "max_num_features": 8192,
+    "peak_threshold": 0.00667,
+    "edge_threshold": 10.0,
     "estimate_affine_shape": false,
-    "domain_size_pooling": false
+    "domain_size_pooling": false,
+    "max_num_orientations": 2,
+    "upright": false,
+    "first_octave": -1,
+    "num_octaves": 4,
+    "octave_resolution": 3,
+    "aliked_max_num_features": 2048,
+    "aliked_min_score": 0.2
   },
   "match": {
     "method": "sequential",
@@ -44,28 +57,59 @@
     "gpu_index": "-1",
     "max_num_matches": 32768,
     "skip_pairs_in_same_frame": true,
-    "rig_verification": true
+    "rig_verification": true,
+    "type": "SIFT_BRUTEFORCE",
+    "max_ratio": 0.8,
+    "max_distance": 0.7,
+    "cross_check": true,
+    "guided_matching": false,
+    "max_error": 4.0,
+    "min_num_inliers": 15,
+    "use_degensac": false
+  },
+  "pairs": {
+    "enabled": false,
+    "loop_window": 40,
+    "loop_max_view_sep": 0,
+    "same_frame": true,
+    "max_view_sep": 2,
+    "dense_window": 0,
+    "dense_max_view_sep": 1
   },
   "mapper": {
     "refine_sensor_from_rig": false,
     "refine_focal_length": false,
     "refine_principal_point": false,
     "refine_extra_params": false,
+    "ba_global_backend": "CERES",
+    "ba_local_backend": "CERES",
     "ba_use_gpu": true,
     "ba_gpu_index": "-1",
     "min_num_matches": 15,
     "init_min_num_inliers": 100,
+    "filter_max_reproj_error": 4.0,
+    "filter_min_tri_angle": 1.5,
+    "tri_min_angle": 1.5,
+    "abs_pose_max_error": 12.0,
+    "init_min_tri_angle": 16.0,
     "multiple_models": false,
-    "global_mapper": false
+    "kind": "incremental",
+    "leaf_max_num_images": 500,
+    "hierarchical_image_overlap": 50,
+    "num_workers": -1
   },
   "export": {
     "work_root": "K:\\realityscan\\out_colmap\\_test30",
     "export_text": true,
-    "export_ply": true
+    "export_ply": true,
+    "drop_stray_views": 1.0,
+    "flat_dataset_dir": "",
+    "flat_per_image_cameras": false
   },
   "run": {
     "exe": "D:\\h3dgs-work\\tools\\colmap420\\bin\\colmap.exe",
     "timeout_min": 120,
-    "skip_existing": true
+    "skip_existing": true,
+    "stages": ""
   }
 }

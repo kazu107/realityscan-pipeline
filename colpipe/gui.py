@@ -419,9 +419,27 @@ class App(ttk.Frame):
         ttk.Checkbutton(g2, text="allow multiple models",
                         variable=self.V("mapper.multiple_models", tk.BooleanVar, False)
                         ).grid(row=4, column=1, sticky="w", **PAD)
-        ttk.Checkbutton(g2, text="use the global mapper instead of incremental",
-                        variable=self.V("mapper.global_mapper", tk.BooleanVar, False)
-                        ).grid(row=5, column=1, columnspan=2, sticky="w", **PAD)
+        _row(g2, 5, "Mapper",
+             self._combo_str(g2, "mapper.kind",
+                             ["incremental", "hierarchical", "global"], 14),
+             "incremental is COLMAP's default and scales as n^1.95 -\n"
+             "measured here, 1,200 images in 14.6 min and 7,232 in 8.1 h,\n"
+             "so 15,922 would be about 38 hours. hierarchical splits the\n"
+             "scene graph into leaves, maps them in parallel and merges")
+        _row(g2, 6, "Leaf max images",
+             ttk.Entry(g2, textvariable=self.V("mapper.leaf_max_num_images",
+                                               tk.IntVar), width=12),
+             "hierarchical only")
+        _row(g2, 7, "Leaf overlap",
+             ttk.Entry(g2, textvariable=self.V(
+                 "mapper.hierarchical_image_overlap", tk.IntVar), width=12),
+             "how much neighbouring leaves share, which is what lets\n"
+             "them merge afterwards")
+        _row(g2, 8, "Workers",
+             ttk.Entry(g2, textvariable=self.V("mapper.num_workers",
+                                               tk.IntVar), width=12),
+             "-1 lets COLMAP decide; each worker is a full mapper, so\n"
+             "memory is the limit rather than cores")
 
         g3 = ttk.LabelFrame(f, text="Filters - what a point or a pose has to "
                                     "meet to be kept")

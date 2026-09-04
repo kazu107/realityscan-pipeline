@@ -173,15 +173,44 @@ def matches_importer(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
 
 def mapper(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
     m = cfg.mapper
-    cmd = "global_mapper" if m.global_mapper else "mapper"
+    cmd = {"global": "global_mapper",
+           "hierarchical": "hierarchical_mapper"}.get(m.kind, "mapper")
     args = [
         cfg.run.exe, cmd,
         "--database_path", str(p.database),
         "--image_path", str(p.images),
         "--output_path", str(p.sparse),
     ]
-    if m.global_mapper:
+    if m.kind == "global":
         return args
+    if m.kind == "hierarchical":
+        # its Mapper.* defaults differ from the plain mapper's - notably
+        # ba_refine_sensor_from_rig and the focal/extra-param refinements are
+        # on - so the ones that were measured here are set explicitly
+        return args + [
+            "--HierarchicalMapper.leaf_max_num_images",
+            str(m.leaf_max_num_images),
+            "--HierarchicalMapper.image_overlap",
+            str(m.hierarchical_image_overlap),
+            "--HierarchicalMapper.num_workers", str(m.num_workers),
+            "--Mapper.ba_refine_sensor_from_rig",
+            _flag(m.refine_sensor_from_rig),
+            "--Mapper.ba_refine_focal_length", _flag(m.refine_focal_length),
+            "--Mapper.ba_refine_principal_point",
+            _flag(m.refine_principal_point),
+            "--Mapper.ba_refine_extra_params", _flag(m.refine_extra_params),
+            "--Mapper.ba_global_backend", m.ba_global_backend,
+            "--Mapper.ba_local_backend", m.ba_local_backend,
+            "--Mapper.ba_use_gpu", _flag(m.ba_use_gpu),
+            "--Mapper.min_num_matches", str(m.min_num_matches),
+            "--Mapper.init_min_num_inliers", str(m.init_min_num_inliers),
+            "--Mapper.filter_max_reproj_error",
+            str(m.filter_max_reproj_error),
+            "--Mapper.filter_min_tri_angle", str(m.filter_min_tri_angle),
+            "--Mapper.tri_min_angle", str(m.tri_min_angle),
+            "--Mapper.abs_pose_max_error", str(m.abs_pose_max_error),
+            "--Mapper.init_min_tri_angle", str(m.init_min_tri_angle),
+        ]
     return args + [
         "--Mapper.ba_refine_sensor_from_rig", _flag(m.refine_sensor_from_rig),
         "--Mapper.ba_refine_focal_length", _flag(m.refine_focal_length),

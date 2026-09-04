@@ -244,7 +244,22 @@ class MapperConfig:
     #: its scale error.
     init_min_tri_angle: float = 16.0
     multiple_models: bool = False
-    global_mapper: bool = False
+    #: Which mapper. "incremental" is COLMAP's default and what every
+    #: measurement here was made with; it scales badly - timed on this data,
+    #: 1,200 images mapped in 14.6 min and 7,232 in 8.1 hours, which is n^1.95,
+    #: so 15,922 would be about 38 hours and 22,060 about 71.
+    #: "hierarchical" splits the scene graph into leaves of at most
+    #: leaf_max_num_images, maps them (num_workers at a time) and merges - the
+    #: same divide-and-merge shape as the RealityScan set pipeline.
+    #: "global" is 4.x's global SfM, roughly linear rather than quadratic.
+    kind: str = "incremental"
+    #: hierarchical only.
+    leaf_max_num_images: int = 500
+    #: How much neighbouring leaves overlap, which is what lets them merge.
+    hierarchical_image_overlap: int = 50
+    #: Leaves mapped at once. -1 lets COLMAP decide from the core count;
+    #: each worker is a full mapper, so memory is the limit, not cores.
+    num_workers: int = -1
 
 
 @dataclass

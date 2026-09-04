@@ -93,7 +93,10 @@
     "abs_pose_max_error": 12.0,
     "init_min_tri_angle": 16.0,
     "multiple_models": false,
-    "global_mapper": false
+    "kind": "incremental",
+    "leaf_max_num_images": 500,
+    "hierarchical_image_overlap": 50,
+    "num_workers": -1
   },
   "export": {
     "work_root": "K:\\realityscan\\out_colmap\\_low",
