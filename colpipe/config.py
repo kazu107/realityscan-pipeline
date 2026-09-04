@@ -70,12 +70,53 @@ class RigConfig:
 
 @dataclass
 class FeatureConfig:
+    """Detection. The RealityScan setting each knob answers to is named.
+
+    RealityScan's `image_downscale` is `max_image_size` here, except that it is
+    a pixel cap on the longer side rather than a divisor: 2133 (or -1) is
+    downscale 1 on this extraction, 1067 is downscale 2. Setting it above the
+    image, as 3200 does, changes nothing.
+
+    Its `max_features_per_mpx` has no counterpart - COLMAP caps per image only.
+    At 2133x2133 that per-megapixel cap worked out to 182,000, above the
+    160,000 per-image one, so it was never the binding limit anyway.
+    """
+
+    #: SIFT, or the learned detectors added in 4.x: ALIKED_N32, ALIKED_N16ROT.
+    #: The ALIKED ones fetch an ONNX model from GitHub the first time they run.
+    type: str = "SIFT"
     use_gpu: bool = True
     gpu_index: str = "-1"        # -1 = all available
+    #: RealityScan: image_downscale, as a pixel cap. -1 = full resolution.
     max_image_size: int = 3200
+    #: RealityScan: max_features_per_image. A target, not a cap - measured on
+    #: 1-mid-1 frames, the stored count lands about 1.3x higher (4096 -> 5,546,
+    #: 16384 -> 23,388, 32768 -> 37,133) until the image runs out of features.
+    #: Worth knowing against match.max_num_matches, which truncates hard: to
+    #: stay under 32,768 there, ask for about 24,000 here.
     max_num_features: int = 8192
+    #: RealityScan: detector_sensitivity. Lower detects more and weaker;
+    #: 0.00667 is COLMAP's default, 0.002 gave 46,772 against 37,133.
+    peak_threshold: float = 0.00667
+    #: Rejects features along edges. Higher keeps more of them.
+    edge_threshold: float = 10.0
+    #: RealityScan: feature_detection_quality. Both are slower and better -
+    #: COLMAP's own recommendation for hard sets.
     estimate_affine_shape: bool = False
     domain_size_pooling: bool = False
+    #: Descriptors per keypoint when its orientation is ambiguous.
+    max_num_orientations: int = 2
+    #: Skip orientation entirely. Defensible here and nowhere else: the views
+    #: are cut from a levelled equirectangular frame, and the cameras of
+    #: 1-mid-1 agree on which way is up to 0.49 degrees median, 1.10 at p95.
+    upright: bool = False
+    #: -1 upsamples the image 2x before detecting, which finds small features.
+    first_octave: int = -1
+    num_octaves: int = 4
+    octave_resolution: int = 3
+    #: ALIKED only.
+    aliked_max_num_features: int = 2048
+    aliked_min_score: float = 0.2
 
 
 @dataclass
@@ -104,6 +145,25 @@ class MatchConfig:
     skip_pairs_in_same_frame: bool = False
     #: Verify pairs against the declared rig (COLMAP 4.x).
     rig_verification: bool = True
+    #: SIFT_BRUTEFORCE, or the learned matchers in 4.x: SIFT_LIGHTGLUE,
+    #: ALIKED_BRUTEFORCE, ALIKED_LIGHTGLUE. The LightGlue ones fetch an ONNX
+    #: model from GitHub the first time they run, and the ALIKED ones need
+    #: features extracted with an ALIKED detector.
+    type: str = "SIFT_BRUTEFORCE"
+    #: Lowe's ratio test. Higher accepts more and worse matches.
+    max_ratio: float = 0.8
+    max_distance: float = 0.7
+    cross_check: bool = True
+    #: Re-match guided by the two-view geometry, which finds more at a cost.
+    guided_matching: bool = False
+    #: RealityScan: max_feature_reprojection_error, at verification time.
+    #: RealityScan used 2.0 on these sets against COLMAP's 4.0.
+    max_error: float = 4.0
+    #: Below this a verified pair is discarded.
+    min_num_inliers: int = 15
+    #: DEGENSAC handles a scene dominated by one plane - a facade, a floor -
+    #: which a walk along buildings is full of.
+    use_degensac: bool = False
 
 
 @dataclass
@@ -167,6 +227,17 @@ class MapperConfig:
     ba_gpu_index: str = "-1"
     min_num_matches: int = 15
     init_min_num_inliers: int = 100
+    #: RealityScan: max_feature_reprojection_error, at reconstruction time.
+    filter_max_reproj_error: float = 4.0
+    #: A point seen from too narrow an angle is a guess about depth; these
+    #: drop it. Raising them trades points for reliability.
+    filter_min_tri_angle: float = 1.5
+    tri_min_angle: float = 1.5
+    #: How far a registered image may be off before it is refused.
+    abs_pose_max_error: float = 12.0
+    #: The initial pair has to have real parallax or the whole model inherits
+    #: its scale error.
+    init_min_tri_angle: float = 16.0
     multiple_models: bool = False
     global_mapper: bool = False
 

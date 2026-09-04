@@ -223,7 +223,44 @@ class App(ttk.Frame):
                        width=12), "-1 = full resolution")
         _row(g, 3, "Max features",
              ttk.Entry(g, textvariable=self.V("feature.max_num_features", tk.IntVar),
-                       width=12), "per image")
+                       width=12),
+             "RealityScan: max_features_per_image. A target, not a cap -\n"
+             "measured on 1-mid-1, the stored count lands about 1.3x higher\n"
+             "(4096 gave 5,546, 16384 gave 23,388, 32768 gave 37,133). Ask\n"
+             "for ~24000 to stay under a max_num_matches of 32768")
+        _row(g, 4, "Detector",
+             self._combo_str(g, "feature.type",
+                             ["SIFT", "ALIKED_N32", "ALIKED_N16ROT"], 14),
+             "the ALIKED detectors are learned, and fetch an ONNX model\n"
+             "from GitHub the first time they run")
+        _row(g, 5, "Peak threshold",
+             ttk.Entry(g, textvariable=self.V("feature.peak_threshold",
+                                              tk.DoubleVar), width=12),
+             "RealityScan: detector_sensitivity. Lower finds more and\n"
+             "weaker; 0.00667 is the default, 0.002 gave 46,772 vs 37,133")
+        _row(g, 6, "Edge threshold",
+             ttk.Entry(g, textvariable=self.V("feature.edge_threshold",
+                                              tk.DoubleVar), width=12),
+             "higher keeps more features lying along edges")
+        ttk.Checkbutton(g, text="estimate affine shape",
+                        variable=self.V("feature.estimate_affine_shape",
+                                        tk.BooleanVar, False)
+                        ).grid(row=7, column=1, sticky="w", **PAD)
+        ttk.Checkbutton(g, text="domain size pooling",
+                        variable=self.V("feature.domain_size_pooling",
+                                        tk.BooleanVar, False)
+                        ).grid(row=8, column=1, sticky="w", **PAD)
+        ttk.Label(g, text="RealityScan: feature_detection_quality. Both are\n"
+                          "slower and better - COLMAP's own advice for hard sets",
+                  foreground="#777").grid(row=7, column=2, rowspan=2,
+                                          sticky="w", **PAD)
+        ttk.Checkbutton(g, text="upright (skip orientation)",
+                        variable=self.V("feature.upright", tk.BooleanVar, False)
+                        ).grid(row=9, column=1, sticky="w", **PAD)
+        ttk.Label(g, text="defensible here and nowhere else: the views are cut\n"
+                          "from a levelled equirectangular frame, and the\n"
+                          "cameras agree on up to 0.49 deg median, 1.10 at p95",
+                  foreground="#777").grid(row=9, column=2, sticky="w", **PAD)
 
         g2 = ttk.LabelFrame(f, text="Matching")
         g2.pack(fill="x", padx=6, pady=4)
@@ -262,6 +299,35 @@ class App(ttk.Frame):
         ttk.Checkbutton(g2, text="use GPU for matching",
                         variable=self.V("match.use_gpu", tk.BooleanVar, True)
                         ).grid(row=7, column=1, sticky="w", **PAD)
+        _row(g2, 8, "Matcher",
+             self._combo_str(g2, "match.type",
+                             ["SIFT_BRUTEFORCE", "SIFT_LIGHTGLUE",
+                              "ALIKED_BRUTEFORCE", "ALIKED_LIGHTGLUE"], 20),
+             "LightGlue is learned and fetches an ONNX model from GitHub\n"
+             "on first use; the ALIKED matchers need ALIKED features")
+        _row(g2, 9, "Ratio test",
+             ttk.Entry(g2, textvariable=self.V("match.max_ratio", tk.DoubleVar),
+                       width=12), "higher accepts more, and worse, matches")
+        _row(g2, 10, "Verify max error",
+             ttk.Entry(g2, textvariable=self.V("match.max_error", tk.DoubleVar),
+                       width=12),
+             "RealityScan: max_feature_reprojection_error, at verification.\n"
+             "It used 2.0 on these sets; COLMAP's default is 4.0")
+        _row(g2, 11, "Min inliers",
+             ttk.Entry(g2, textvariable=self.V("match.min_num_inliers",
+                                               tk.IntVar), width=12),
+             "below this a verified pair is thrown away")
+        ttk.Checkbutton(g2, text="DEGENSAC",
+                        variable=self.V("match.use_degensac", tk.BooleanVar,
+                                        False)
+                        ).grid(row=12, column=1, sticky="w", **PAD)
+        ttk.Label(g2, text="for a scene dominated by one plane - a facade, a\n"
+                           "floor - which a walk along buildings is full of",
+                  foreground="#777").grid(row=12, column=2, sticky="w", **PAD)
+        ttk.Checkbutton(g2, text="guided matching",
+                        variable=self.V("match.guided_matching", tk.BooleanVar,
+                                        False)
+                        ).grid(row=13, column=1, sticky="w", **PAD)
 
         g3 = ttk.LabelFrame(f, text="Close the loop - pairs the frame index "
                                     "cannot reach")
@@ -350,6 +416,32 @@ class App(ttk.Frame):
         ttk.Checkbutton(g2, text="use the global mapper instead of incremental",
                         variable=self.V("mapper.global_mapper", tk.BooleanVar, False)
                         ).grid(row=5, column=1, columnspan=2, sticky="w", **PAD)
+
+        g3 = ttk.LabelFrame(f, text="Filters - what a point or a pose has to "
+                                    "meet to be kept")
+        g3.pack(fill="x", padx=6, pady=4)
+        _row(g3, 0, "Max reproj error",
+             ttk.Entry(g3, textvariable=self.V("mapper.filter_max_reproj_error",
+                                               tk.DoubleVar), width=12),
+             "RealityScan: max_feature_reprojection_error, at reconstruction.\n"
+             "It used 2.0 on these sets; COLMAP's default is 4.0")
+        _row(g3, 1, "Min tri angle",
+             ttk.Entry(g3, textvariable=self.V("mapper.filter_min_tri_angle",
+                                               tk.DoubleVar), width=12),
+             "a point seen from too narrow an angle is a guess about depth")
+        _row(g3, 2, "Tri min angle",
+             ttk.Entry(g3, textvariable=self.V("mapper.tri_min_angle",
+                                               tk.DoubleVar), width=12),
+             "the same test, when the point is first created")
+        _row(g3, 3, "Abs pose max error",
+             ttk.Entry(g3, textvariable=self.V("mapper.abs_pose_max_error",
+                                               tk.DoubleVar), width=12),
+             "how far a newly registered image may be off before it is refused")
+        _row(g3, 4, "Init min tri angle",
+             ttk.Entry(g3, textvariable=self.V("mapper.init_min_tri_angle",
+                                               tk.DoubleVar), width=12),
+             "the initial pair needs real parallax, or the whole model\n"
+             "inherits its scale error")
         return f
 
     # -- tab 4 -------------------------------------------------------------

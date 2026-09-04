@@ -67,13 +67,30 @@ def feature_extractor(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
         "--ImageReader.camera_model", cfg.rig.camera_model,
         # 4.x moved the shared knobs to FeatureExtraction and left the
         # SIFT-only ones behind; 3.x names are silently rejected
+        "--FeatureExtraction.type", f.type,
         "--FeatureExtraction.use_gpu", _flag(f.use_gpu),
         "--FeatureExtraction.gpu_index", str(f.gpu_index),
         "--FeatureExtraction.max_image_size", str(f.max_image_size),
-        "--SiftExtraction.max_num_features", str(f.max_num_features),
-        "--SiftExtraction.estimate_affine_shape", _flag(f.estimate_affine_shape),
-        "--SiftExtraction.domain_size_pooling", _flag(f.domain_size_pooling),
     ]
+    if f.type.startswith("ALIKED"):
+        args += [
+            "--AlikedExtraction.max_num_features", str(f.aliked_max_num_features),
+            "--AlikedExtraction.min_score", str(f.aliked_min_score),
+        ]
+    else:
+        args += [
+            "--SiftExtraction.max_num_features", str(f.max_num_features),
+            "--SiftExtraction.peak_threshold", str(f.peak_threshold),
+            "--SiftExtraction.edge_threshold", str(f.edge_threshold),
+            "--SiftExtraction.estimate_affine_shape",
+            _flag(f.estimate_affine_shape),
+            "--SiftExtraction.domain_size_pooling", _flag(f.domain_size_pooling),
+            "--SiftExtraction.max_num_orientations", str(f.max_num_orientations),
+            "--SiftExtraction.upright", _flag(f.upright),
+            "--SiftExtraction.first_octave", str(f.first_octave),
+            "--SiftExtraction.num_octaves", str(f.num_octaves),
+            "--SiftExtraction.octave_resolution", str(f.octave_resolution),
+        ]
     if cfg.dataset.use_masks:
         # COLMAP wants masks in a parallel tree, named <image name>.png
         args += ["--ImageReader.mask_path", str(p.masks)]
@@ -92,6 +109,14 @@ def matcher(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
     m = cfg.match
     common = [
         "--database_path", str(p.database),
+        "--FeatureMatching.type", m.type,
+        "--FeatureMatching.guided_matching", _flag(m.guided_matching),
+        "--SiftMatching.max_ratio", str(m.max_ratio),
+        "--SiftMatching.max_distance", str(m.max_distance),
+        "--SiftMatching.cross_check", _flag(m.cross_check),
+        "--TwoViewGeometry.max_error", str(m.max_error),
+        "--TwoViewGeometry.min_num_inliers", str(m.min_num_inliers),
+        "--TwoViewGeometry.use_degensac", _flag(m.use_degensac),
         "--FeatureMatching.use_gpu", _flag(m.use_gpu),
         "--FeatureMatching.gpu_index", str(m.gpu_index),
         "--FeatureMatching.max_num_matches", str(m.max_num_matches),
@@ -138,6 +163,11 @@ def matches_importer(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
         # the importer drop them again
         "--FeatureMatching.skip_image_pairs_in_same_frame", "0",
         "--FeatureMatching.rig_verification", _flag(m.rig_verification),
+        "--FeatureMatching.type", m.type,
+        "--SiftMatching.max_ratio", str(m.max_ratio),
+        "--SiftMatching.max_distance", str(m.max_distance),
+        "--TwoViewGeometry.max_error", str(m.max_error),
+        "--TwoViewGeometry.min_num_inliers", str(m.min_num_inliers),
     ]
 
 
@@ -163,6 +193,11 @@ def mapper(cfg: ColmapPipelineConfig, p: Paths) -> list[str]:
         "--Mapper.ba_gpu_index", str(m.ba_gpu_index),
         "--Mapper.min_num_matches", str(m.min_num_matches),
         "--Mapper.init_min_num_inliers", str(m.init_min_num_inliers),
+        "--Mapper.filter_max_reproj_error", str(m.filter_max_reproj_error),
+        "--Mapper.filter_min_tri_angle", str(m.filter_min_tri_angle),
+        "--Mapper.tri_min_angle", str(m.tri_min_angle),
+        "--Mapper.abs_pose_max_error", str(m.abs_pose_max_error),
+        "--Mapper.init_min_tri_angle", str(m.init_min_tri_angle),
         "--Mapper.multiple_models", _flag(m.multiple_models),
     ]
 
