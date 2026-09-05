@@ -84,8 +84,17 @@ def retrieve(exe: str, database: Path, tree: Path, query: list[str],
                        encoding="utf-8", errors="replace")
     out = p.stdout + p.stderr
     if log_path:
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_path.write_text(out, encoding="utf-8")
+        # An hour of retrieval must not be lost because a log file could not be
+        # written - which is exactly what an unsanitised label in the name did
+        # once. Sanitise, and if it still fails, carry on: the results are in
+        # `out` either way.
+        try:
+            safe = re.sub(r'[<>:"/\|?*]', "_", log_path.name)
+            path = log_path.with_name(safe)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(out, encoding="utf-8")
+        except OSError:
+            pass
     if p.returncode != 0:
         raise RuntimeError(f"vocab_tree_retriever failed: {out[-600:]}")
 
