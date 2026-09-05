@@ -120,7 +120,10 @@ def flatten(model_dir: Path, out_dir: Path, image_root: Path, *,
             mask_dir: str = "", write_masks: bool = True,
             mask_quality: int = 92, digits: int = 5,
             keep_all_keypoints: bool = False,
-            per_image_cameras: bool = False) -> FlattenResult:
+            per_image_cameras: bool = False,
+            name_mode: str = "sequential",
+            image_root_rel: str = "",
+            write_images: bool = True) -> FlattenResult:
     """Write ``model_dir`` and its images out as a flat COLMAP dataset.
 
     ``image_root`` is the workspace's ``images`` folder, whose files are already
@@ -148,14 +151,44 @@ def flatten(model_dir: Path, out_dir: Path, image_root: Path, *,
     res.images = len(entries)
     res.messages.append(f"{len(entries)} registered images")
 
+    # "sequential" renumbers for the flat gaussian-splatting layout;
+    # "source" puts back the extraction's own file name, which is what
+    # RealityScan knows an image by - a component whose images are not the
+    # project's images cannot be merged with it. image_root_rel is prepended
+    # because RealityScan resolves these against the folder the model sits in
+    # and an absolute path there comes out concatenated onto it.
+    def _rel_for(workspace_name: str) -> str:
+        """The relative root for this image's set.
+
+        A combined model holds two captures whose originals live in different
+        folders - 1-mid's under jpeg/1-mid-1 and 1-low's under jpeg/1-low - so
+        one prefix cannot serve both. A dict maps the workspace folder prefix
+        to that set's root; a plain string is the single-set case.
+        """
+        if not isinstance(image_root_rel, dict):
+            return image_root_rel
+        folder = workspace_name.replace("\\", "/").split("/")[0]
+        best = ""
+        for pre, rel in image_root_rel.items():
+            if folder.startswith(pre) and len(pre) >= len(best):
+                best, chosen = pre, rel
+        return chosen if best or "" in image_root_rel else             image_root_rel.get("", "")
+
     new_name = {}
-    for i, (image_id, *_rest) in enumerate(entries):
-        new_name[image_id] = f"{i:0{digits}d}.jpg"
+    for i, (image_id, _h, _c, name, _r) in enumerate(entries):
+        if name_mode == "source":
+            base = source_name(name)
+            rel = _rel_for(name)
+            new_name[image_id] = f"{rel}/{base}" if rel else base
+        else:
+            new_name[image_id] = f"{i:0{digits}d}.jpg"
 
     # ---- images and masks ----------------------------------------------
     from PIL import Image
 
     for image_id, _h, _c, name, _r in entries:
+        if not write_images:
+            break
         dst = img_out / new_name[image_id]
         src = image_root / name
         if not dst.exists():

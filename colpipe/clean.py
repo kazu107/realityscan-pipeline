@@ -33,6 +33,18 @@ from .model import read_model
 FRAME = re.compile(r"_(?P<frame>\d+)\.\w+$")
 
 
+def frame_key(name: str) -> str:
+    """What COLMAP itself calls one frame: the file name, without the folder.
+
+    Grouping on the trailing number alone breaks as soon as two captures share
+    a model - 1-mid's frame 400 and 1-low's frame 400 are different places, and
+    averaging them produces a "frame centre" halfway between two walks, which
+    then makes every view of both look stray. The file names already carry the
+    set (1-mid_0400.jpg against 1-low_0400.jpg), so the name is the key.
+    """
+    return name.replace("\\", "/").rpartition("/")[2]
+
+
 @dataclass
 class CleanResult:
     dropped: list[str] = field(default_factory=list)
@@ -44,18 +56,22 @@ class CleanResult:
 def find_stray(model_dir: Path, threshold: float = 1.0) -> CleanResult:
     """Name the views more than ``threshold`` index-steps off their frame."""
     m = read_model(Path(model_dir))
-    by_frame: dict[int, list] = {}
+    by_frame: dict[str, list] = {}
     for im in m.images.values():
-        _, _, stem = im.name.replace("\\", "/").rpartition("/")
-        if (mt := FRAME.search(stem)):
-            by_frame.setdefault(int(mt.group("frame")), []).append(im)
+        by_frame.setdefault(frame_key(im.name), []).append(im)
 
     res = CleanResult()
     if len(by_frame) < 3:
         res.messages.append("too few frames to measure a step")
         return res
 
-    frames = sorted(by_frame)
+    # ordered by the trailing number within each set, so consecutive entries
+    # really are consecutive positions and the median step means something
+    def order(k: str):
+        mt = FRAME.search(k)
+        return (k[:mt.start()] if mt else k, int(mt.group("frame")) if mt else 0)
+
+    frames = sorted(by_frame, key=order)
     # the median is the right centre here: it survives the very outliers we
     # are looking for, where a mean would be dragged towards them
     centre = {f: np.median([im.centre for im in by_frame[f]], axis=0)

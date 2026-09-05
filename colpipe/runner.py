@@ -26,6 +26,7 @@ from . import cli
 from .config import ColmapPipelineConfig
 from .clean import clean_model
 from .flatten import flatten
+from .rsexport import import_into_realityscan, write_text_model
 from .layout import build as build_layout
 from .pairs import write_pairs
 from .rig import Direction, RigSpec, from_extractor_settings, ring
@@ -363,6 +364,25 @@ class PipelineRunner:
             for msg in fr.messages:
                 self.emit("log", {"line": f"[colpipe] {msg}"})
             res.detail["flat_dataset"] = self.cfg.export.flat_dataset_dir
+        if self.cfg.export.realityscan_project and res.status != "failed":
+            d = self.cfg.dataset
+            rs_exe = self.cfg.export.realityscan_exe or (
+                r"C:\Program Files\Epic Games\RealityScan_2.2\RealityScan.exe")
+            out = Path(self.cfg.export.realityscan_project)
+            # the prefix the layout used maps this set's images to where they
+            # actually live; a workspace holding two captures needs the CLI,
+            # which takes the mapping directly
+            where = ({d.folder_prefix: Path(d.image_dir)} if d.folder_prefix
+                     else Path(d.image_dir))
+            tr = write_text_model(self.cfg.run.exe, best, out.parent, where)
+            for msg in tr.messages:
+                self.emit("log", {"line": f"[colpipe] {msg}"})
+            if tr.text_dir:
+                ir = import_into_realityscan(rs_exe, tr.text_dir, out,
+                                             log_path=p.logs / "realityscan.log")
+                for msg in ir.messages:
+                    self.emit("log", {"line": f"[colpipe] {msg}"})
+                res.detail["realityscan_project"] = str(out)
         if res.status != "failed":
             res.status = "ok"
             res.message = f"exported from {best.name} of {len(models)} model(s)"

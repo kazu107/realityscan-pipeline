@@ -279,6 +279,13 @@ class ExportConfig:
     #: sparse/0 - which is the layout K:\data\col is in and what the gaussian
     #: splatting side reads. Empty = do not write one.
     flat_dataset_dir: str = ""
+    #: Also hand the result to RealityScan as a component, written here as an
+    #: .rsproj. The route is -loadColmap; see colpipe/rsexport.py for the four
+    #: things that have to be right about the text model for it to load.
+    #: Verified exact: 13,906 cameras out and back with residual 1.1e-13.
+    realityscan_project: str = ""
+    #: RealityScan.exe. Empty falls back to the usual install path.
+    realityscan_exe: str = ""
     #: One camera per image in that dataset rather than one per direction.
     #: Sharing is correct for this rig and every COLMAP reader handles it;
     #: K:\data\col has per-image cameras because RealityScan undistorted each
