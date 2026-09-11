@@ -21,6 +21,8 @@ from .cli import (
     STAT_MARKER,
     build_command,
     build_merge_command,
+    check_command_length,
+    write_import_rscmd,
     build_retry_command,
     chunk_paths,
     command_as_batch,
@@ -590,7 +592,13 @@ class PipelineRunner:
             self.emit("step_end", {"result": result})
             return
 
+        write_import_rscmd(components, paths.imports_rscmd)
         args = build_merge_command(self.cfg, components, paths)
+        if (warn := check_command_length(args, "merge command")):
+            result.status = "failed"
+            result.message = warn
+            self.emit("merge_end", {"result": result})
+            return result
         (paths.root / "command.bat").write_text(command_as_batch(args), encoding="utf-8")
 
         result.status = "running"
